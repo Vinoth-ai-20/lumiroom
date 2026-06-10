@@ -1,8 +1,10 @@
 # Furniture Mega Pack (FMP) Integration Guide
 
-**Project Title:** Lumiroom: AI-Assisted Mobile AR Furniture Visualization and Interior Planning System  
+**Project:** Lumiroom: AI-Assisted Mobile AR Furniture Visualization and Interior Planning System  
 **Version:** 1.0  
 **Date:** 2026-06-10  
+
+[⬅ Back to README](../README.md) | [Next: Asset Pipeline](AssetPipeline.md)
 
 ---
 

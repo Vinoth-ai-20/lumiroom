@@ -1,108 +1,96 @@
-# Software Architecture Description
+# System Architecture
 
-**Project Title:** Lumiroom: AI-Assisted Mobile AR Furniture Visualization and Interior Planning System  
+**Project:** Lumiroom: AI-Assisted Mobile AR Furniture Visualization and Interior Planning System  
+**Document Standard:** ISO/IEC/IEEE 42010  
 **Version:** 1.0  
 **Date:** 2026-06-10  
 
----
-
-## 1. Introduction and Architectural Principles
-
-The architecture of Lumiroom strictly follows modern Android development principles, heavily leaning on **Unidirectional Data Flow (UDF)**, **Dependency Injection**, and the **Repository Pattern**. It is designed with an offline-first philosophy to ensure responsiveness.
-
-### 1.1 Key Principles
-- **Separation of Concerns**: UI, Domain, and Data layers are strictly decoupled.
-- **Offline-First**: All state modifications happen against local Room databases first, syncing with Firestore asynchronously.
-- **Reactive State**: Jetpack Compose observes Kotlin `StateFlow` streams exposed by `ViewModel`s.
+[⬅ Back to README](../README.md) | [Next: C4 Architecture](C4Architecture.md)
 
 ---
 
-## 2. C4 Model Diagrams
-
-### 2.1 System Context Diagram
-```mermaid
-C4Context
-    title System Context Diagram for Lumiroom
-    
-    Person(user, "User", "Homeowner or designer looking to visualize furniture")
-    System(lumiroom, "Lumiroom App", "AR application for furniture visualization")
-    System_Ext(firestore, "Firebase Firestore", "Cloud NoSQL Database")
-    System_Ext(vertexai, "Google Vertex AI", "Provides ML/AI room recommendations")
-    
-    Rel(user, lumiroom, "Views and places furniture via AR")
-    Rel(lumiroom, firestore, "Syncs room layouts", "HTTPS")
-    Rel(lumiroom, vertexai, "Requests health score & compatibility", "REST API")
-```
-
-### 2.2 Container Diagram
-```mermaid
-C4Container
-    title Container Diagram for Lumiroom App
-    
-    Container(ui, "UI Layer", "Jetpack Compose", "Renders the interface and handles user events")
-    Container(arcore, "AR Engine", "SceneView / Filament", "Renders 3D GLB models in AR space")
-    Container(domain, "Domain Layer", "Kotlin", "Use cases (e.g., PlaceFurnitureUseCase)")
-    Container(data, "Data Layer", "Kotlin / Flow", "Repositories orchestrating local & remote data")
-    ContainerDb(room, "Local Database", "SQLite / Room", "Stores offline catalogs and layouts")
-    
-    Rel(ui, arcore, "Embeds ArSceneView")
-    Rel(ui, domain, "Dispatches intents")
-    Rel(domain, data, "Requests data operations")
-    Rel(data, room, "Reads from and writes to")
-```
-
-### 2.3 Component Diagram (Data Layer)
-```mermaid
-C4Component
-    title Component Diagram for the Data Layer
-    
-    Component(repo, "FurnitureRepository", "Kotlin Class", "Abstracts data sources")
-    Component(roomDao, "FurnitureDao", "Room Interface", "Executes local queries")
-    Component(firestoreApi, "FirestoreDataSource", "Kotlin Class", "Handles network calls")
-    
-    Rel(repo, roomDao, "Reads/Writes local state")
-    Rel(repo, firestoreApi, "Fetches updates from cloud")
-```
+## 1. Architecture Principles
+The architecture of Lumiroom is driven by three core philosophies:
+1. **Unidirectional Data Flow (UDF)**: State flows down, events flow up. The UI is a pure function of the state.
+2. **Offline-First Robustness**: The application must never block the UI waiting for a network request. All changes are written to a local database first.
+3. **Separation of Concerns**: Strict boundary enforcement between the UI (Compose), Domain (Use Cases), and Data (Repositories) layers via Clean Architecture.
 
 ---
 
-## 3. Detailed UML Diagrams
+## 2. Architectural Decisions (ADRs)
 
-### 3.1 MVVM / Unidirectional Data Flow
+| ADR ID | Decision | Rationale | Status |
+|--------|----------|-----------|--------|
+| ADR-01 | **SceneView over ArSceneform** | SceneView provides native Kotlin, filament integration, and active maintenance. | Accepted |
+| ADR-02 | **Room + Firestore Hybrid** | Relying entirely on Firestore limits AR performance in low-connectivity. SQLite ensures instant rendering. | Accepted |
+| ADR-03 | **Hilt Dependency Injection** | Hilt integrates cleanly with ViewModels and Navigation Compose, providing compile-time safety. | Accepted |
+| ADR-04 | **Jetpack Compose UI** | Eliminates XML overhead and enforces UDF state management natively. | Accepted |
+
+---
+
+## 3. Quality Attributes
+- **Maintainability**: Enforced via multi-module architecture (`app`, `core`, `feature:ar`, `feature:voice`).
+- **Testability**: Interfaces are heavily used in the Data layer, allowing Mockk-based unit testing for ViewModels.
+- **Performance**: Heavy rendering tasks are offloaded to native C++ Filament libraries.
+
+---
+
+## 4. Patterns Used
+
+### 4.1 MVVM (Model-View-ViewModel)
+ViewModels act as StateHolders, exposing `StateFlow` and handling `Events`.
+
+```mermaid
+classDiagram
+    class View {
+        +observeState()
+        +emitEvent()
+    }
+    class ViewModel {
+        -StateFlow state
+        +handleEvent()
+    }
+    class UseCase {
+        +execute()
+    }
+    View --> ViewModel : Event
+    ViewModel --> View : State
+    ViewModel --> UseCase : Intent
+```
+
+### 4.2 Repository Pattern
+Repositories orchestrate data between Room (Local) and Firebase (Remote).
+
+### 4.3 Dependency Injection
+Hilt modules provide singletons for `RoomDatabase`, `FirebaseAuth`, and Repositories.
+
+---
+
+## 5. Offline-First Design
+
 ```mermaid
 sequenceDiagram
-    participant UI as Compose UI
-    participant VM as ArViewModel
-    participant UC as PlaceFurnitureUseCase
+    participant UI
+    participant VM as ViewModel
     participant Repo as PlacedItemRepository
+    participant Room as RoomDB (Local)
+    participant Sync as SyncManager
+    participant FB as Firestore
     
-    UI->>VM: executeCommand(VoiceCommand.Place)
-    VM->>UC: invoke(furnitureId, coords)
-    UC->>Repo: insertPlacedItem(entity)
-    Repo-->>UC: success
-    UC-->>VM: result
-    VM->>UI: _uiState.update(items)
-```
-
-### 3.2 State Machine Diagram: AR Placement Mode
-```mermaid
-stateDiagram-v2
-    [*] --> Idle
-    Idle --> VoiceListening : User activates mic
-    VoiceListening --> IntentParsed : Speech API returns string
-    IntentParsed --> PlacementMode : "Place X" command
-    IntentParsed --> Idle : Unrecognized command
+    UI->>VM: Move Object
+    VM->>Repo: updatePosition(x,y,z)
+    Repo->>Room: UPDATE placed_items
+    Room-->>Repo: Success
+    Repo-->>VM: Updated List
+    VM->>UI: Render New Frame instantly
     
-    PlacementMode --> AnchorCreated : User taps plane OR "Here" command
-    AnchorCreated --> ObjectManipulating : Object spawned
-    ObjectManipulating --> ObjectManipulating : Rotate/Scale
-    ObjectManipulating --> Idle : Deselect
+    Note over Sync, FB: Background Thread
+    Room->>Sync: Trigger Flow Collection
+    Sync->>FB: Batch Write
 ```
 
 ---
 
-## 4. Architectural Decisions (ADRs)
-
-- **ADR-001: SceneView over ArSceneform**: SceneView provides native Kotlin APIs and active maintainership compared to the deprecated ArSceneform.
-- **ADR-002: Offline-First SQLite**: Ensures AR experience does not stutter or fail in dead zones inside homes.
-- **ADR-003: Hilt over Koin**: Compile-time safety for dependency injection is preferred in a multi-module architecture.
+## 6. Related Documents
+- View comprehensive architecture diagrams in [C4 Architecture](C4Architecture.md).
+- View precise state handling in [State Machine Diagrams](StateMachineDiagrams.md).

@@ -1,8 +1,10 @@
 # Project Implementation Plan and Roadmap
 
-**Project Title:** Lumiroom: AI-Assisted Mobile AR Furniture Visualization and Interior Planning System  
+**Project:** Lumiroom: AI-Assisted Mobile AR Furniture Visualization and Interior Planning System  
 **Version:** 1.0  
 **Date:** 2026-06-10  
+
+[⬅ Back to README](../README.md) | [Next: Testing Report](TestingReport.md)
 
 ---
 
@@ -44,11 +46,7 @@ gantt
    - 4.2 AR SceneView Integration
 
 ## 3. Risk Analysis
-| Risk | Probability | Impact | Mitigation Strategy |
-|------|-------------|--------|---------------------|
-| ARCore Device Fragmentation | Medium | High | Rely on SceneView standard filament materials. Provide 2D fallback. |
-| Large GLB Asset Sizes | High | Medium | Implement Draco compression and aggressive caching. |
-| Firestore Costs | Low | Medium | Utilize Room local-first architecture to minimize read/write cloud operations. |
+See [Risk Assessment](RiskAssessment.md) for full mitigation matrices.
 
 ## 4. Release Plan
 - **Alpha (v0.1)**: Core AR placement with 10 built-in models. Local database only.

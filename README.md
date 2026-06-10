@@ -1,12 +1,12 @@
 # Lumiroom
 > **AI-Assisted Mobile AR Furniture Visualization and Interior Planning System**
 
-[![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
+[![License](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
 [![Kotlin](https://img.shields.io/badge/kotlin-2.0.0-blue.svg?logo=kotlin)](http://kotlinlang.org)
 [![Platform](https://img.shields.io/badge/Platform-Android-green.svg?logo=android)](https://www.android.com/)
 [![CI](https://github.com/Vinoth-ai-20/lumiroom/actions/workflows/ci.yml/badge.svg)](https://github.com/Vinoth-ai-20/lumiroom/actions)
 
-Lumiroom is a state-of-the-art Android mobile application that redefines how users plan and visualize interior spaces. By combining **ARCore** spatial tracking with an offline-capable **Voice Command Engine** and **AI-powered room recommendations**, Lumiroom provides a seamless, hands-free design experience.
+Lumiroom is an enterprise-grade Android application that redefines how users plan and visualize interior spaces. By combining **ARCore** spatial tracking with an offline-capable **Voice Command Engine** and **AI-powered room recommendations**, Lumiroom provides a seamless, hands-free interior design experience.
 
 ---
 
@@ -14,35 +14,57 @@ Lumiroom is a state-of-the-art Android mobile application that redefines how use
 
 | AR Placement | Voice Commands | 2D Planning |
 |:---:|:---:|:---:|
-| <img src="https://via.placeholder.com/250x500.png?text=AR+Mode" width="200"/> | <img src="https://via.placeholder.com/250x500.png?text=Voice+Control" width="200"/> | <img src="https://via.placeholder.com/250x500.png?text=2D+Canvas" width="200"/> |
+| <img src="https://placehold.co/250x500?text=AR+Mode" width="200"/> | <img src="https://placehold.co/250x500?text=Voice+Control" width="200"/> | <img src="https://placehold.co/250x500?text=2D+Canvas" width="200"/> |
 
 ---
 
 ## 🚀 Features
 - **True-to-Scale AR Visualization**: Anchor 3D models seamlessly into your physical environment.
-- **Hands-Free Voice Control**: "Place the modern sofa here" - control the entire UI using natural language.
+- **Hands-Free Voice Control**: Control the entire UI using natural language (e.g., "Place the modern sofa here").
 - **Offline-First Architecture**: Build rooms without a network connection; syncs automatically to the cloud when online.
-- **AI Recommendations**: Vertex AI integration analyzes your layout and suggests complimentary furniture and layout improvements.
+- **AI Recommendations**: Vertex AI analyzes your layout and suggests complimentary furniture.
 - **Furniture Mega Pack (FMP)**: Access to hundreds of high-quality, optimized 3D GLB assets.
 
 ---
 
-## 🛠️ Technology Stack
-- **Language**: Kotlin
-- **UI Framework**: Jetpack Compose & Material 3
-- **AR Engine**: SceneView & ARCore
-- **Architecture**: MVVM, Unidirectional Data Flow (UDF), Clean Architecture
-- **Dependency Injection**: Hilt
-- **Local Database**: Room (SQLite)
-- **Cloud Backend**: Firebase Firestore, Storage, & Authentication
-- **Voice Recognition**: Android SpeechRecognizer API
-- **AI Backend**: Google Vertex AI
+## 📚 Documentation Directory
+
+Lumiroom features a complete, international-standard documentation suite adhering to ISO/IEC/IEEE 42010 and IEEE 830.
+
+| Document | Description |
+|-----------|-------------|
+| [Software Requirements Specification](docs/SRS.md) | IEEE 830 functional and non-functional requirements |
+| [System Architecture](docs/Architecture.md) | ISO 42010 Architecture, Principles, and Patterns |
+| [C4 Architecture Models](docs/C4Architecture.md) | System Context, Container, Component, and Deployment diagrams |
+| [UML Diagrams Index](docs/UMLDiagrams.md) | Central hub for all UML models |
+| [Database Design](docs/DatabaseDesign.md) | ER diagrams, Room schemas, and Firestore sync strategy |
+| [Asset Pipeline](docs/AssetPipeline.md) | 3D Furniture asset optimization workflow |
+| [Deployment Guide](docs/DeploymentGuide.md) | Build, signing, and CI/CD deployment |
+| [FMP Integration Guide](docs/FMP_Integration_Guide.md) | Asset extraction and preprocessing process |
+| [Implementation Plan](docs/implementation_plan.md) | Agile roadmap, WBS, and Gantt charts |
+| [Testing Report](docs/TestingReport.md) | QA testing strategy, matrices, and coverage |
+| [Use Cases](docs/UseCases.md) | Actor diagrams and use case narratives |
+| [Sequence Diagrams](docs/SequenceDiagrams.md) | Time-ordered flow of operations |
+| [Class Diagrams](docs/ClassDiagrams.md) | Domain and Data layer object structures |
+| [ER Diagrams](docs/ERDiagrams.md) | Database Entity-Relationship diagrams |
+| [Data Flow Diagrams](docs/DataFlowDiagrams.md) | System data processing pipelines |
+| [State Machine Diagrams](docs/StateMachineDiagrams.md) | Lifecycle and application states |
+| [Activity Diagrams](docs/ActivityDiagrams.md) | Process and logic workflows |
+| [Deployment Diagrams](docs/DeploymentDiagrams.md) | Physical node distributions |
+| [Security Architecture](docs/SecurityArchitecture.md) | Threat models, Trust boundaries, Auth flows |
+| [API Reference](docs/APIReference.md) | Repository, ViewModel, and Service APIs |
+| [Coding Standards](docs/CodingStandards.md) | Kotlin and Compose formatting guidelines |
+| [Risk Assessment](docs/RiskAssessment.md) | Risk matrices and mitigation strategies |
+| [Performance Analysis](docs/PerformanceAnalysis.md) | Benchmarking, rendering FPS, and memory limits |
+| [Glossary](docs/Glossary.md) | Definitions and terminology |
+| [Contributing Guide](docs/ContributingGuide.md) | Workflows for open-source contributors |
+| [Changelog](docs/Changelog.md) | Version history |
+| [Future Scope](docs/FutureScope.md) | Roadmap for future features |
 
 ---
 
 ## 🏗️ Architecture Overview
-
-Lumiroom uses a modern Android architecture based on the **Repository Pattern** and **Unidirectional Data Flow**.
+Lumiroom uses a modern Android architecture based on **Unidirectional Data Flow (UDF)** and the **Repository Pattern**.
 
 ```mermaid
 C4Context
@@ -56,12 +78,23 @@ C4Context
     Rel(app, room, "Reads/Writes (Source of Truth)")
     Rel(room, firestore, "Background Sync")
 ```
-*For deeper architectural details, see [Architecture Documentation](docs/Architecture.md).*
+
+---
+
+## 🛠️ Technology Stack
+- **Language**: Kotlin
+- **UI Framework**: Jetpack Compose & Material 3
+- **AR Engine**: SceneView & ARCore
+- **Dependency Injection**: Hilt
+- **Local Database**: Room (SQLite) & DataStore
+- **Cloud Backend**: Firebase Firestore, Storage, & Authentication
+- **Voice Recognition**: Android SpeechRecognizer API
+- **AI Backend**: Google Vertex AI
+- **Concurrency**: Kotlin Coroutines & Flow
 
 ---
 
 ## 📂 Folder Structure
-
 ```text
 lumiroom/
 ├── app/                  # Application entry point and DI setup
@@ -74,20 +107,17 @@ lumiroom/
 ---
 
 ## 💻 Installation & Build Guide
-
 ### Prerequisites
 - **Android Studio Koala** (or newer)
 - **JDK 17**
 - An ARCore supported Android device (API 29+)
 
-### 1. Firebase Setup
-Lumiroom requires Firebase to run.
-1. Create a project in the Firebase Console.
-2. Download your `google-services.json` file.
-3. Place the file inside the `app/` directory (see `google-services.json.example`).
+### Firebase Setup
+1. Create a project in the [Firebase Console](https://console.firebase.google.com/).
+2. Enable Firestore, Storage, and Authentication.
+3. Replace `app/google-services.json.example` with your real `google-services.json`.
 
-### 2. Building the Project
-Clone the repository and build via Gradle:
+### Building the Project
 ```bash
 git clone https://github.com/Vinoth-ai-20/lumiroom.git
 cd lumiroom
@@ -97,40 +127,40 @@ cd lumiroom
 ---
 
 ## 🎙️ Voice Commands Guide
-Lumiroom features a robust fuzzy-matching voice parser. Activate the microphone and try:
-- *"Place a modern vanity here"* (Executes a center-screen raycast)
+Activate the microphone and speak natural commands:
+- *"Place a modern vanity here"* (Executes center-screen raycast)
 - *"Rotate the sofa 90 degrees"*
 - *"Remove this item"*
 - *"Undo"*
 
 ---
 
-## 🚧 Known Limitations
-- Extremely reflective surfaces may disrupt AR tracking.
-- Voice recognition accuracy degrades in noisy environments (a push-to-talk fallback is provided).
+## 📱 Supported Devices
+Lumiroom requires a device with a Time-of-Flight (ToF) sensor or sufficient camera capabilities to support **Google ARCore Depth API**. Standard support begins at devices equivalent to the Google Pixel 4 / Samsung Galaxy S10 and newer.
 
 ---
 
 ## 🗺️ Roadmap
-See our [Implementation Plan](docs/implementation_plan.md) for full details.
-- [x] Phase 1: AR Engine Integration
-- [x] Phase 2: Offline-First Database Sync
-- [x] Phase 3: Voice Command Engine
-- [ ] Phase 4: Vertex AI Room Health Scoring (In Progress)
+Please see our detailed [Implementation Plan](docs/implementation_plan.md) and [Future Scope](docs/FutureScope.md) for full roadmap details.
 
 ---
 
 ## 🤝 Contributing
-We welcome contributions! Please see our [FMP Integration Guide](docs/FMP_Integration_Guide.md) for adding new 3D models to the project.
-Ensure all PRs pass the GitHub Actions CI pipeline (Lint & Unit Tests) before requesting a review.
+We welcome contributions! Please see our [Contributing Guide](docs/ContributingGuide.md) and [Coding Standards](docs/CodingStandards.md) before submitting a Pull Request.
 
 ---
 
 ## 📜 License
-This project is licensed under the Apache 2.0 License - see the [LICENSE](LICENSE) file for details.
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
 ---
 
 ## 🙏 Acknowledgements
 - [SceneView](https://github.com/SceneView/sceneview-android) for the incredible AR rendering engine.
-- IEEE Standard documentation templates.
+- [Google ARCore](https://developers.google.com/ar) for spatial tracking.
+
+---
+
+## 📚 References
+- ISO/IEC/IEEE 42010:2011, Systems and software engineering — Architecture description.
+- IEEE Std 830-1998, IEEE Recommended Practice for Software Requirements Specifications.
