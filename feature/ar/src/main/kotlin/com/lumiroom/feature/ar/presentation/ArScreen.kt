@@ -121,14 +121,10 @@ fun ArScreen(
                             name = id
                         }
                     } else {
-                        Log.d("ArPlacement", "No cached anchor found. Creating unanchored Node with DB pose.")
+                        Log.d("ArPlacement", "No cached anchor found. Creating unanchored Node with DB position.")
                         Node(engine).apply {
                             name = id
                             position = Position(placedItem.placedItem.posX, placedItem.placedItem.posY, placedItem.placedItem.posZ)
-                            quaternion = dev.romainguy.kotlin.math.Quaternion(
-                                placedItem.placedItem.rotX, placedItem.placedItem.rotY,
-                                placedItem.placedItem.rotZ, placedItem.placedItem.rotW
-                            )
                         }
                     }
 
@@ -145,12 +141,16 @@ fun ArScreen(
                     val modelNode = object : ModelNode(modelInstance = modelInstance) {
                         override fun onMoveBegin(detector: io.github.sceneview.gesture.MoveGestureDetector, e: android.view.MotionEvent): Boolean {
                             if (uiState.lockedItemIds.contains(id)) return false
+                            
+                            // Unconditionally call super to preserve SceneView gesture lifecycle tracking
                             super.onMoveBegin(detector, e)
+                            
                             lastTouchX = e.x
                             lastTouchY = e.y
                             // Detach anchor to allow free movement during drag
                             if (uiState.interactionMode == InteractionMode.MOVE) {
-                                (baseNode as? AnchorNode)?.anchor?.detach()
+                                val anchorNode = baseNode as? AnchorNode
+                                anchorNode?.anchor?.detach()
                             }
                             return true
                         }
@@ -176,9 +176,13 @@ fun ArScreen(
                                 return true
                             }
                             
-                            if (uiState.interactionMode != InteractionMode.MOVE) return false
+                            if (uiState.interactionMode != InteractionMode.MOVE) {
+                                return false
+                            }
 
-                            super.onMove(detector, e)
+                            // We do NOT call super.onMove here because we are explicitly taking over
+                            // translation logic via raycasting to prevent SceneView's internal double-drag
+
                             val hitResult = currentFrame?.hitTest(e.x, e.y)?.firstOrNull { hit ->
                                 val trackable = hit.trackable
                                 trackable is Plane && trackable.isPoseInPolygon(hit.hitPose)
@@ -191,6 +195,7 @@ fun ArScreen(
                         }
 
                         override fun onMoveEnd(detector: io.github.sceneview.gesture.MoveGestureDetector, e: android.view.MotionEvent) {
+                            // Unconditionally call super to preserve SceneView gesture lifecycle
                             super.onMoveEnd(detector, e)
                             
                             if (uiState.interactionMode == InteractionMode.MOVE) {
@@ -199,10 +204,16 @@ fun ArScreen(
                                     trackable is Plane && trackable.isPoseInPolygon(hit.hitPose)
                                 }
                                 val anchorNode = baseNode as? AnchorNode
-                                if (hitResult != null && anchorNode != null) {
-                                    anchorNode.anchor?.detach()
-                                    val newAnchor = hitResult.createAnchor()
-                                    anchorNode.anchor = newAnchor
+                                if (hitResult != null) {
+                                    val identityPose = com.google.ar.core.Pose(
+                                        hitResult.hitPose.translation,
+                                        floatArrayOf(0f, 0f, 0f, 1f)
+                                    )
+                                    val newAnchor = hitResult.trackable.createAnchor(identityPose)
+                                    if (anchorNode != null) {
+                                        anchorNode.anchor?.detach()
+                                        anchorNode.anchor = newAnchor
+                                    }
                                     
                                     viewModel.onItemTransformed(
                                         itemId = id,
@@ -429,7 +440,11 @@ fun ArScreen(
                                 Log.d("ArPlacement", "Plane tapped! Creating ARCore Anchor at tx:${pose.tx()}, ty:${pose.ty()}, tz:${pose.tz()}")
                                 
                                 val instanceId = java.util.UUID.randomUUID().toString()
-                                val anchor = hitResult.createAnchor()
+                                val identityPose = com.google.ar.core.Pose(
+                                    pose.translation,
+                                    floatArrayOf(0f, 0f, 0f, 1f)
+                                )
+                                val anchor = hitResult.trackable.createAnchor(identityPose)
                                 anchorCache[instanceId] = anchor
                                 
                                 viewModel.onPlaneTapped(
