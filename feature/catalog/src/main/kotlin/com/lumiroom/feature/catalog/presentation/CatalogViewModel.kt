@@ -12,6 +12,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
@@ -44,7 +45,11 @@ class CatalogViewModel @Inject constructor(
         Pair(category, query)
     }.flatMapLatest { (category, query) ->
         val safeQuery = query.takeIf { it.isNotBlank() }
-        repository.getFilteredFurniture(category, safeQuery)
+        if (category == "Favorites") {
+            repository.getFilteredFurniture(null, safeQuery).map { list -> list.filter { it.isFavorite } }
+        } else {
+            repository.getFilteredFurniture(category, safeQuery)
+        }
     }.stateIn(
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(5000),

@@ -117,3 +117,95 @@ dependencies {
     debugImplementation(libs.androidx.compose.ui.tooling)
     debugImplementation(libs.androidx.compose.ui.test.manifest)
 }
+
+// ── Automatic Furniture Catalog Generation ─────────────────────────────────
+tasks.register("generateFurnitureCatalog") {
+    val modelsDir = rootProject.file("models")
+    val thumbnailsDir = rootProject.file("thumbnails")
+    val outputAssetsDir = project.file("src/main/assets")
+    val outputFile = java.io.File(outputAssetsDir, "furniture_seed.json")
+
+    // We only declare inputs if they exist to avoid task configuration errors
+    if (modelsDir.exists()) inputs.dir(modelsDir)
+    if (thumbnailsDir.exists()) inputs.dir(thumbnailsDir)
+    outputs.file(outputFile)
+
+    doLast {
+        if (!outputAssetsDir.exists()) outputAssetsDir.mkdirs()
+        
+        val modelsAssetsDir = java.io.File(outputAssetsDir, "models")
+        if (!modelsAssetsDir.exists()) modelsAssetsDir.mkdirs()
+        
+        val thumbnailsAssetsDir = java.io.File(outputAssetsDir, "thumbnails")
+        if (!thumbnailsAssetsDir.exists()) thumbnailsAssetsDir.mkdirs()
+
+        val jsonItems = mutableListOf<String>()
+
+        if (modelsDir.exists()) {
+            val glbFiles = modelsDir.walkTopDown().filter { it.isFile && it.extension == "glb" }.toList()
+            
+            glbFiles.forEach { glbFile ->
+                val fileName = glbFile.nameWithoutExtension
+                val categoryRaw = fileName.split("_").firstOrNull() ?: "other"
+                val categoryMap = mapOf(
+                    "sofa" to "Sofas",
+                    "chair" to "Chairs",
+                    "table" to "Tables",
+                    "bed" to "Beds",
+                    "vanity" to "Cabinets",
+                    "bathtub" to "Decor",
+                    "shower" to "Decor",
+                    "toilet" to "Decor",
+                    "washbasin" to "Decor"
+                )
+                val category = categoryMap[categoryRaw] ?: categoryRaw.replaceFirstChar { it.uppercase() }
+
+                val style = "Modern"
+                val title = fileName.split("_").joinToString(" ") { word -> word.replaceFirstChar { it.uppercase() } }
+                
+                // Copy to assets
+                val destModel = java.io.File(modelsAssetsDir, glbFile.name)
+                glbFile.copyTo(destModel, overwrite = true)
+                
+                // Find matching thumbnail
+                var thumbPath: String? = null
+                if (thumbnailsDir.exists()) {
+                    val thumbFile = thumbnailsDir.walkTopDown().find { it.nameWithoutExtension == fileName && it.extension == "webp" }
+                    if (thumbFile != null && thumbFile.exists()) {
+                        val destThumb = java.io.File(thumbnailsAssetsDir, thumbFile.name)
+                        thumbFile.copyTo(destThumb, overwrite = true)
+                        thumbPath = "thumbnails/${thumbFile.name}"
+                    }
+                }
+
+                val id = java.util.UUID.nameUUIDFromBytes(fileName.toByteArray()).toString()
+                
+                val jsonItem = """
+                {
+                    "id": "$id",
+                    "name": "$title",
+                    "category": "$category",
+                    "description": "High-quality $title.",
+                    "width": 1.0,
+                    "depth": 1.0,
+                    "height": 1.0,
+                    "priceEstimate": 299.99,
+                    "modelPath": "models/${glbFile.name}",
+                    "thumbnailPath": ${thumbPath?.let { "\"$it\"" } ?: "null"},
+                    "style": "$style"
+                }
+                """.trimIndent()
+                
+                jsonItems.add(jsonItem)
+            }
+        }
+        
+        outputFile.writeText("[\n${jsonItems.joinToString(",\n")}\n]")
+    }
+}
+
+tasks.whenTaskAdded {
+    if (name == "preBuild") {
+        dependsOn("generateFurnitureCatalog")
+    }
+}

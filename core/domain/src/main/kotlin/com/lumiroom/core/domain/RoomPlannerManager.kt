@@ -68,8 +68,13 @@ class RoomPlannerManager @Inject constructor(
     }
 
     suspend fun deleteRoom(roomId: String) {
-        roomDesignDao.getRoomWithItemsOnce(roomId)?.roomDesign?.let {
-            roomDesignDao.delete(it)
+        try {
+            placedItemDao.deleteAllForRoom(roomId)
+            roomDesignDao.getRoomWithItemsOnce(roomId)?.roomDesign?.let {
+                roomDesignDao.delete(it)
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
         }
     }
 }

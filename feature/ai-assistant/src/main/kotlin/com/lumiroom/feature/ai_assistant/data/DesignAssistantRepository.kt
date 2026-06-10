@@ -19,7 +19,7 @@ class DesignAssistantRepository @Inject constructor() {
     private val chat by lazy {
         generativeModel.startChat(
             history = listOf(
-                content(role = "user") { text("You are an expert interior design assistant. Your name is Lumi. You give concise, helpful advice about room layout, styling, and furniture recommendations.") },
+                content(role = "user") { text("You are an expert interior design assistant named Lumi. Your main objective is to suggest room layouts, recommend furniture pieces by category and style, and provide styling and spacing advice based on the room context provided. Keep your answers concise and professional.") },
                 content(role = "model") { text("Hello! I am Lumi, your interior design assistant. How can I help you improve your space today?") }
             )
         )

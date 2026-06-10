@@ -14,7 +14,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import com.lumiroom.core.ui.components.FurnitureCard
 import com.lumiroom.core.ui.components.LoadingOverlay
 
-val CATEGORIES = listOf("Bathroom", "Bed", "Chair", "Closet", "Cushion", "Drawer", "Kitchen", "Sofa", "Table")
+val CATEGORIES = listOf("Favorites", "Bathroom", "Bed", "Chair", "Closet", "Cushion", "Drawer", "Kitchen", "Sofa", "Table")
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -109,8 +109,7 @@ fun CatalogScreen(
                         verticalArrangement = Arrangement.spacedBy(12.dp),
                         modifier = Modifier.fillMaxSize()
                     ) {
-                        items(furnitureList.size) { index ->
-                            val item = furnitureList[index]
+                        items(items = furnitureList, key = { it.id }) { item ->
                             FurnitureCard(
                                 name = item.name,
                                 brand = item.category, // Using category as brand equivalent for now

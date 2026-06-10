@@ -47,8 +47,11 @@ private val LightColorScheme = lightColorScheme(
     secondaryContainer   = LumiroomSecondaryContainer,
     onSecondaryContainer = LumiroomOnSecondaryContainer,
     background           = LumiroomBackgroundLight,
+    onBackground         = LumiroomOnBackgroundLight,
     surface              = LumiroomSurfaceLight,
+    onSurface            = LumiroomOnSurfaceLight,
     surfaceVariant       = LumiroomSurfaceVariantLight,
+    onSurfaceVariant     = LumiroomOnSurfaceVariantLight,
 )
 
 // ── Custom Color Tokens (AR overlay, glass) ───────────────────────────────────

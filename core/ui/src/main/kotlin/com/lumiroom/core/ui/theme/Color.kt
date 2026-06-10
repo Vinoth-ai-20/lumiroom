@@ -44,8 +44,11 @@ val LumiroomGlassBorder     = Color(0x4DFFFFFF)    // 30% white border
 
 // ── Light Mode Surfaces ───────────────────────────────────────────────────────
 val LumiroomBackgroundLight  = Color(0xFFF8F6FF)
+val LumiroomOnBackgroundLight = Color(0xFF1E1E2C)
 val LumiroomSurfaceLight     = Color(0xFFFFFFFF)
+val LumiroomOnSurfaceLight    = Color(0xFF1E1E2C)
 val LumiroomSurfaceVariantLight = Color(0xFFEEEBFF)
+val LumiroomOnSurfaceVariantLight = Color(0xFF49454F)
 
 // ── AR-Specific Colors ────────────────────────────────────────────────────────
 val ArPlaneColor         = Color(0x3300C9A7)    // Translucent teal plane overlay

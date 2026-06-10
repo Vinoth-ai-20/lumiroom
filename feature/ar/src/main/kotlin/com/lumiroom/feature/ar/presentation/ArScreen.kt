@@ -561,13 +561,13 @@ fun ArScreen(
         
         // ── Active Gesture Overlays (Center) ───────────────────────────────────
         if (activeScaleText != null) {
-            Box(modifier = Modifier.align(Alignment.Center).padding(bottom = 60.dp).background(Color.Black.copy(alpha = 0.6f), RoundedCornerShape(24.dp)).padding(horizontal = 24.dp, vertical = 12.dp)) {
-                Text(text = activeScaleText!!, color = Color.White, style = MaterialTheme.typography.displayMedium, fontWeight = FontWeight.Bold)
+            Box(modifier = Modifier.align(Alignment.Center).padding(bottom = 60.dp).background(MaterialTheme.colorScheme.surface.copy(alpha = 0.6f), RoundedCornerShape(24.dp)).padding(horizontal = 24.dp, vertical = 12.dp)) {
+                Text(text = activeScaleText!!, color = MaterialTheme.colorScheme.onSurface, style = MaterialTheme.typography.displayMedium, fontWeight = FontWeight.Bold)
             }
         }
         if (activeRotationText != null) {
-            Box(modifier = Modifier.align(Alignment.Center).padding(bottom = 60.dp).background(Color.Black.copy(alpha = 0.6f), RoundedCornerShape(24.dp)).padding(horizontal = 24.dp, vertical = 12.dp)) {
-                Text(text = activeRotationText!!, color = Color.White, style = MaterialTheme.typography.displayMedium, fontWeight = FontWeight.Bold)
+            Box(modifier = Modifier.align(Alignment.Center).padding(bottom = 60.dp).background(MaterialTheme.colorScheme.surface.copy(alpha = 0.6f), RoundedCornerShape(24.dp)).padding(horizontal = 24.dp, vertical = 12.dp)) {
+                Text(text = activeRotationText!!, color = MaterialTheme.colorScheme.onSurface, style = MaterialTheme.typography.displayMedium, fontWeight = FontWeight.Bold)
             }
         }
 

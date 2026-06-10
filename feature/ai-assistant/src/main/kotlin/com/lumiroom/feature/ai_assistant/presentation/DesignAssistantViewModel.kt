@@ -122,7 +122,7 @@ class DesignAssistantViewModel @Inject constructor(
                 }
             } catch (e: Exception) {
                 val updatedMessages = _uiState.value.messages.toMutableList()
-                updatedMessages.add(ChatMessage("Sorry, I encountered an error connecting to my AI brain.", false))
+                updatedMessages.add(ChatMessage("Sorry, I couldn't connect to my AI brain. Please check your internet connection.", false))
                 _uiState.value = _uiState.value.copy(messages = updatedMessages)
             } finally {
                 _uiState.value = _uiState.value.copy(isLoading = false)
