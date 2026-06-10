@@ -105,23 +105,23 @@ fun ArScreen(
         toAdd.forEach { id ->
             val placedItem = uiState.placedItems.find { it.placedItem.id == id } ?: return@forEach
             coroutineScope.launch {
-                Log.d("ArPlacement", "Attempting to load model instance for item: $id")
+
                 val modelInstance = try {
                     modelLoader.loadModelInstance("models/${placedItem.furniture.modelPath.substringAfterLast("/")}")
                 } catch (e: Exception) {
                     null
                 }
                 if (modelInstance != null) {
-                    Log.d("ArPlacement", "Model instance loaded successfully.")
+
                     
                     val anchor = anchorCache[id]
                     val baseNode: Node = if (anchor != null) {
-                        Log.d("ArPlacement", "Attaching to cached ARCore AnchorNode.")
+
                         AnchorNode(engine, anchor).apply {
                             name = id
                         }
                     } else {
-                        Log.d("ArPlacement", "No cached anchor found. Creating unanchored Node with DB position.")
+
                         Node(engine).apply {
                             name = id
                             position = Position(placedItem.placedItem.posX, placedItem.placedItem.posY, placedItem.placedItem.posZ)
@@ -168,7 +168,7 @@ fun ArScreen(
                     baseNode.addChildNode(transformNode)
                     baseNode.name = id // So it can be found for removal
                     childNodes.add(baseNode)
-                    Log.d("ArPlacement", "Model attached to AR scene graph via ARPivotNode!")
+
                 } else {
                     Log.e("ArPlacement", "Failed to load model instance!")
                 }
@@ -468,7 +468,7 @@ fun ArScreen(
                             }
                             if (hitResult != null) {
                                 val pose = hitResult.hitPose
-                                Log.d("ArPlacement", "Plane tapped! Creating ARCore Anchor at tx:${pose.tx()}, ty:${pose.ty()}, tz:${pose.tz()}")
+
                                 
                                 val instanceId = java.util.UUID.randomUUID().toString()
                                 val identityPose = com.google.ar.core.Pose(

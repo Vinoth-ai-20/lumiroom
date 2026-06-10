@@ -20,18 +20,18 @@ class LumiAssistantRepository @Inject constructor(
 
     fun sendMessageStream(prompt: String): Flow<String> {
         val startTime = System.currentTimeMillis()
-        Log.d(TAG, "Sending prompt length: ${prompt.length} chars")
+
 
         return assistant.sendMessageStream(prompt)
             .onStart {
-                Log.d(TAG, "Stream started")
+
             }
             .onCompletion { error ->
                 val duration = System.currentTimeMillis() - startTime
                 if (error != null) {
                     Log.e(TAG, "Stream failed after $duration ms", error)
                 } else {
-                    Log.d(TAG, "Stream completed successfully in $duration ms")
+
                 }
             }
             .catch { e ->
@@ -63,6 +63,6 @@ class LumiAssistantRepository @Inject constructor(
 
     fun clearConversation() {
         assistant.clearHistory()
-        Log.d(TAG, "Conversation history cleared")
+
     }
 }
