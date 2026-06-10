@@ -1,108 +1,57 @@
-# Lumiroom Furniture Asset Pipeline
+# Asset Pipeline Documentation
 
-This document defines the standard operating procedure (SOP) for preparing, optimizing, and registering 3D furniture models into the Lumiroom platform.
-
-By following this pipeline, new furniture assets can be added dynamically via Firebase Cloud Storage and Firestore without requiring an application update.
+**Project Title:** Lumiroom: AI-Assisted Mobile AR Furniture Visualization and Interior Planning System  
+**Version:** 1.0  
+**Date:** 2026-06-10  
 
 ---
 
-## 1. Folder Structure
+## 1. Introduction
+High-quality 3D assets are central to the Lumiroom AR experience. The Asset Pipeline defines the automated and manual processes for importing, optimizing, compressing, and caching 3D models from the Furniture Mega Pack (FMP) into the Android application.
 
-Maintain this structure locally before uploading to Firebase:
+## 2. Asset Pipeline Workflow
 
-```text
-furniture_assets/
-├── src_models/               # Raw FBX models from "Furniture Mega Pack Free"
-├── working_files/            # Blender (.blend) files
-├── export_glb/               # Final, optimized .glb files
-├── export_thumbnails/        # Rendered .webp or .png thumbnails
-└── metadata.json             # Registration schema for Firestore
+```mermaid
+activityDiagram
+    start
+    :Designer creates FBX/OBJ in Blender;
+    :Export to glTF;
+    :Texture Compression (KTX2 / Basis Universal);
+    :Mesh Decimation (Draco Compression);
+    :Export as binary GLB;
+    :Generate 512x512 WebP Thumbnail;
+    :Upload to Firebase Storage;
+    :Update Firestore Metadata (Name, Bounds, Category);
+    stop
 ```
 
----
+## 3. Optimization Strategy
 
-## 2. Naming Conventions
+### 3.1 Mesh Optimization
+- **Polygon Count**: Strict limit of 50,000 polygons per model to ensure 30+ FPS rendering on mobile devices.
+- **Draco Compression**: Applied to all `.glb` models to drastically reduce file size before network transmission.
 
-Strict naming conventions ensure automated scripts can map thumbnails to GLB files.
+### 3.2 Texture Pipeline
+- All textures are baked into BaseColor, Normal, and ORM (Occlusion/Roughness/Metallic) maps.
+- **Resolution Limit**: 1024x1024 maximum texture resolution.
+- **Format**: Textures are compressed using KTX2 formatting to minimize GPU memory footprint during AR rendering.
 
-- **Format:** `category_style_name_variant` (All lowercase, snake_case)
-- **GLB File:** `sofa_modern_carlton_grey.glb`
-- **Thumbnail:** `sofa_modern_carlton_grey.webp`
-- **ID Generation:** Strip the extension to get the unique Database ID (`sofa_modern_carlton_grey`).
+## 4. Caching and Loading Strategy
 
----
-
-## 3. Blender Optimization Workflow
-
-Lumiroom uses Google's `SceneView` (ARCore), which requires highly optimized `.glb` (glTF Binary) files to maintain 60 FPS on mobile devices.
-
-### 3.1 Import Workflow
-1. Open a new Blender project.
-2. File > Import > FBX (`.fbx`).
-3. Select the target furniture piece.
-
-### 3.2 Optimization Rules
-1. **Scale & Transforms:** 
-   - Apply all transforms (`Ctrl + A` -> All Transforms). 
-   - Ensure the model's pivot point (origin) is at the **bottom-center** (where it touches the floor). This is critical for AR anchoring.
-   - Scale must be 1:1 in **meters**. A 2-meter long sofa must measure exactly 2.0 on the X-axis in Blender.
-2. **Mesh Optimization:**
-   - Merge vertices by distance (`M` in Edit Mode).
-   - Target Polygon Count: **< 15,000 tris** for large furniture (Sofas, Beds), **< 5,000 tris** for small decor. Use the Decimate modifier if necessary.
-3. **Materials & Textures:**
-   - Use a single Principled BSDF material per object.
-   - Bake textures if there are multiple overlapping materials.
-   - Texture maps (Base Color, Normal, ORM) must be compressed to **1024x1024** or **512x512** for smaller items.
-
-### 3.3 GLB Export
-1. File > Export > glTF 2.0 (`.glb`).
-2. **Settings:**
-   - Format: `glTF Binary (.glb)`
-   - Include: `Selected Objects`
-   - Transform: `+Y Up` (Standard for ARCore)
-   - Geometry: Apply Modifiers
-   - Compression: Enable **Draco Compression** (Compression Level: 6) to heavily reduce file size.
-
----
-
-## 4. Thumbnail Generation Workflow
-
-Thumbnails are displayed in the Lumiroom Catalog UI.
-
-1. **Camera Setup:** 
-   - Add a Camera in Blender (`Shift + A` > Camera).
-   - Position it at an isometric angle (e.g., Rotation X: 60°, Y: 0°, Z: 45°).
-   - Set resolution to **512x512**.
-   - Set Background to Transparent (Render Properties > Film > Transparent).
-2. **Lighting:**
-   - Use a basic Studio HDRI for consistent, soft lighting without harsh shadows.
-3. **Render:**
-   - Render Image (`F12`).
-   - Save as `.webp` (or `.png`) with RGBA channels. WebP is preferred for Android bandwidth savings.
-
----
-
-## 5. Catalog Registration (Metadata Schema)
-
-To inject the asset into the app without code changes, upload the `.glb` and `.webp` to Firebase Storage, then add the following JSON structure to your Firestore `furniture_catalog` collection:
-
-```json
-{
-  "id": "sofa_modern_carlton_grey",
-  "name": "Carlton Modern Sofa",
-  "category": "SOFA",
-  "styleTag": "MODERN",
-  "description": "A sleek, grey modern sofa perfect for minimalist living rooms.",
-  "length": 2.1,
-  "width": 0.9,
-  "height": 0.85,
-  "priceEstimate": 899.99,
-  "modelUrl": "gs://lumiroom-project.appspot.com/models/sofa_modern_carlton_grey.glb",
-  "thumbnailUrl": "gs://lumiroom-project.appspot.com/thumbnails/sofa_modern_carlton_grey.webp",
-  "createdAt": 1718000000000,
-  "updatedAt": 1718000000000
-}
+### 4.1 Local File Caching
+```mermaid
+stateDiagram-v2
+    [*] --> CheckLocalCache
+    CheckLocalCache --> LoadFromDisk : File exists
+    CheckLocalCache --> DownloadFromFirebase : File missing
+    DownloadFromFirebase --> SaveToDisk
+    SaveToDisk --> LoadFromDisk
+    LoadFromDisk --> RenderInAR
 ```
 
-### 5.1 Remote Sync Behavior
-When the app launches, the `SyncEngine` queries the Firestore `furniture_catalog` collection. It automatically downloads new entries, caches the `modelUrl` for offline AR viewing, and populates the UI dynamically. No application update is needed.
+### 4.2 Memory Management
+- Models are loaded asynchronously via Kotlin Coroutines.
+- If memory pressure is detected (`onTrimMemory`), unused cached models in RAM are explicitly released by SceneView.
+
+## 5. Naming Conventions
+All assets must follow the `Category_Brand_ModelName.glb` structure (e.g., `Sofa_Ikea_Kivik.glb`).

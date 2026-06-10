@@ -1,96 +1,136 @@
 # Lumiroom
+> **AI-Assisted Mobile AR Furniture Visualization and Interior Planning System**
 
-**AI-Assisted Mobile AR Furniture Visualization & Interior Planning System**
+[![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
+[![Kotlin](https://img.shields.io/badge/kotlin-2.0.0-blue.svg?logo=kotlin)](http://kotlinlang.org)
+[![Platform](https://img.shields.io/badge/Platform-Android-green.svg?logo=android)](https://www.android.com/)
+[![CI](https://github.com/Vinoth-ai-20/lumiroom/actions/workflows/ci.yml/badge.svg)](https://github.com/Vinoth-ai-20/lumiroom/actions)
 
-[![CI](https://github.com/your-org/lumiroom/actions/workflows/ci.yml/badge.svg)](https://github.com/your-org/lumiroom/actions/workflows/ci.yml)
+Lumiroom is a state-of-the-art Android mobile application that redefines how users plan and visualize interior spaces. By combining **ARCore** spatial tracking with an offline-capable **Voice Command Engine** and **AI-powered room recommendations**, Lumiroom provides a seamless, hands-free design experience.
 
 ---
 
-## Overview
+## 📸 Screenshots
 
-Lumiroom lets users visualize furniture in their physical space using Augmented Reality, get personalized design recommendations from an AI assistant (Lumi), and plan room layouts with a 2D floor editor — all from a single Android app.
+| AR Placement | Voice Commands | 2D Planning |
+|:---:|:---:|:---:|
+| <img src="https://via.placeholder.com/250x500.png?text=AR+Mode" width="200"/> | <img src="https://via.placeholder.com/250x500.png?text=Voice+Control" width="200"/> | <img src="https://via.placeholder.com/250x500.png?text=2D+Canvas" width="200"/> |
 
-## Technology Stack
+---
 
-| Layer | Technology |
-|---|---|
-| UI | Jetpack Compose + Material 3 |
-| Architecture | Clean Architecture + MVVM |
-| AR | ARCore + SceneView (Filament) |
-| 3D Models | glTF 2.0 / GLB |
-| AI | Firebase Vertex AI (Gemini 1.5 Flash) |
-| Voice | Android SpeechRecognizer API |
-| DI | Hilt |
-| Local DB | Room (SQLite) |
-| Preferences | DataStore |
-| Cloud | Firebase Auth + Firestore + Storage |
-| Network | Retrofit + OkHttp |
-| Build | Multi-module Gradle + Version Catalog |
+## 🚀 Features
+- **True-to-Scale AR Visualization**: Anchor 3D models seamlessly into your physical environment.
+- **Hands-Free Voice Control**: "Place the modern sofa here" - control the entire UI using natural language.
+- **Offline-First Architecture**: Build rooms without a network connection; syncs automatically to the cloud when online.
+- **AI Recommendations**: Vertex AI integration analyzes your layout and suggests complimentary furniture and layout improvements.
+- **Furniture Mega Pack (FMP)**: Access to hundreds of high-quality, optimized 3D GLB assets.
 
-## Module Structure
+---
 
+## 🛠️ Technology Stack
+- **Language**: Kotlin
+- **UI Framework**: Jetpack Compose & Material 3
+- **AR Engine**: SceneView & ARCore
+- **Architecture**: MVVM, Unidirectional Data Flow (UDF), Clean Architecture
+- **Dependency Injection**: Hilt
+- **Local Database**: Room (SQLite)
+- **Cloud Backend**: Firebase Firestore, Storage, & Authentication
+- **Voice Recognition**: Android SpeechRecognizer API
+- **AI Backend**: Google Vertex AI
+
+---
+
+## 🏗️ Architecture Overview
+
+Lumiroom uses a modern Android architecture based on the **Repository Pattern** and **Unidirectional Data Flow**.
+
+```mermaid
+C4Context
+    title High-Level System Architecture
+    Person(user, "User")
+    System(app, "Lumiroom Android App")
+    SystemDb(room, "Local Room DB")
+    SystemDb_Ext(firestore, "Firebase Cloud")
+    
+    Rel(user, app, "Interacts via Touch/Voice")
+    Rel(app, room, "Reads/Writes (Source of Truth)")
+    Rel(room, firestore, "Background Sync")
 ```
-:app                    ← Entry point, navigation host
-:core:ui                ← Shared Compose components & theme
-:core:common            ← Utilities, Result type, dispatchers
-:core:network           ← Retrofit/OkHttp client
-:core:database          ← Room DB, entities, DAOs
-:core:datastore         ← DataStore preferences
-:feature:onboarding     ← Splash, carousel, permissions
-:feature:auth           ← Firebase Sign In/Up
-:feature:catalog        ← Furniture browse, search, filter
-:feature:ar             ← ARCore session, SceneView, placement
-:feature:room-planner   ← 2D Canvas floor plan editor
-:feature:ai-assistant   ← Gemini chat assistant
-:feature:voice          ← SpeechRecognizer command engine
-:feature:saved-rooms    ← Room persistence & cloud sync
-:feature:settings       ← User preferences & theme
+*For deeper architectural details, see [Architecture Documentation](docs/Architecture.md).*
+
+---
+
+## 📂 Folder Structure
+
+```text
+lumiroom/
+├── app/                  # Application entry point and DI setup
+├── core/                 # Shared logic, databases, analytics, networking
+├── feature/              # Independent feature modules (ar, voice, onboarding)
+├── docs/                 # ISO/IEEE compliant documentation suite
+└── .github/workflows/    # CI/CD pipelines
 ```
 
-## Getting Started
+---
+
+## 💻 Installation & Build Guide
 
 ### Prerequisites
+- **Android Studio Koala** (or newer)
+- **JDK 17**
+- An ARCore supported Android device (API 29+)
 
-- Android Studio Ladybug (2024.2.1) or later
-- JDK 17
-- Android SDK API 26+
-- A device or emulator with ARCore support
-- Firebase project with Firestore, Auth, Vertex AI, and Storage enabled
+### 1. Firebase Setup
+Lumiroom requires Firebase to run.
+1. Create a project in the Firebase Console.
+2. Download your `google-services.json` file.
+3. Place the file inside the `app/` directory (see `google-services.json.example`).
 
-### Setup
-
-1. Clone the repository
-2. Add your `google-services.json` to `app/`
-3. Open in Android Studio
-4. Run on a physical ARCore-supported device (emulator AR preview is limited)
-
+### 2. Building the Project
+Clone the repository and build via Gradle:
 ```bash
+git clone https://github.com/Vinoth-ai-20/lumiroom.git
+cd lumiroom
 ./gradlew assembleDebug
 ```
 
-## Architecture
+---
 
-Follows **Clean Architecture** with three layers:
-- **Presentation**: Compose UI + ViewModels + StateFlow
-- **Domain**: Use Cases + Repository interfaces + Domain Models
-- **Data**: Room DAOs, Firestore, DataStore, ARCore session
+## 🎙️ Voice Commands Guide
+Lumiroom features a robust fuzzy-matching voice parser. Activate the microphone and try:
+- *"Place a modern vanity here"* (Executes a center-screen raycast)
+- *"Rotate the sofa 90 degrees"*
+- *"Remove this item"*
+- *"Undo"*
 
-See the full architecture documentation in [implementation_plan.md](docs/implementation_plan.md).
+---
 
-## Development Roadmap
+## 🚧 Known Limitations
+- Extremely reflective surfaces may disrupt AR tracking.
+- Voice recognition accuracy degrades in noisy environments (a push-to-talk fallback is provided).
 
-| Milestone | Target | Description |
-|---|---|---|
-| M0 | Week 2 | Infrastructure complete |
-| M1 | Week 4 | Auth & Onboarding |
-| M2 | Week 7 | Furniture Catalog |
-| M3 | Week 11 | AR Core Engine |
-| M4 | Week 13 | Room Planner |
-| M5 | Week 16 | AI Assistant |
-| M6 | Week 18 | Voice Commands |
-| M7 | Week 20 | Cloud Sync |
-| M8 | Week 24 | v1.0 Release |
+---
 
-## License
+## 🗺️ Roadmap
+See our [Implementation Plan](docs/implementation_plan.md) for full details.
+- [x] Phase 1: AR Engine Integration
+- [x] Phase 2: Offline-First Database Sync
+- [x] Phase 3: Voice Command Engine
+- [ ] Phase 4: Vertex AI Room Health Scoring (In Progress)
 
-Copyright © 2026 Lumiroom. All rights reserved.
+---
+
+## 🤝 Contributing
+We welcome contributions! Please see our [FMP Integration Guide](docs/FMP_Integration_Guide.md) for adding new 3D models to the project.
+Ensure all PRs pass the GitHub Actions CI pipeline (Lint & Unit Tests) before requesting a review.
+
+---
+
+## 📜 License
+This project is licensed under the Apache 2.0 License - see the [LICENSE](LICENSE) file for details.
+
+---
+
+## 🙏 Acknowledgements
+- [SceneView](https://github.com/SceneView/sceneview-android) for the incredible AR rendering engine.
+- IEEE Standard documentation templates.

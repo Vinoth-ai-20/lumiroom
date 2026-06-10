@@ -3,6 +3,7 @@ package com.lumiroom.feature.ar.presentation
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.automirrored.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -37,11 +38,11 @@ fun ArControlPanel(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             IconButton(onClick = onUndo, enabled = canUndo) {
-                Icon(Icons.Default.Undo, "Undo",
+                Icon(Icons.AutoMirrored.Filled.Undo, "Undo",
                     tint = if (canUndo) LumiroomPrimary else MaterialTheme.colorScheme.onSurfaceVariant)
             }
             IconButton(onClick = onRedo, enabled = canRedo) {
-                Icon(Icons.Default.Redo, "Redo",
+                Icon(Icons.AutoMirrored.Filled.Redo, "Redo",
                     tint = if (canRedo) LumiroomPrimary else MaterialTheme.colorScheme.onSurfaceVariant)
             }
 

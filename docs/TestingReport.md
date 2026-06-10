@@ -1,32 +1,43 @@
-# Testing & Performance Report
+# QA and Testing Strategy Report
 
-## 1. Test Strategy
-Lumiroom utilizes a multi-tiered testing strategy:
-- **Unit Tests:** Validate pure business logic, mathematical layout calculations, and RoomHealth analytics using JUnit4 and MockK.
-- **Integration Tests:** Validate Room Database DAO operations and the Firebase SyncEngine lifecycle.
-- **UI Tests:** Validate Compose screens using `createComposeRule()`.
+**Project Title:** Lumiroom: AI-Assisted Mobile AR Furniture Visualization and Interior Planning System  
+**Version:** 1.0  
+**Date:** 2026-06-10  
 
-## 2. Unit Testing Coverage
-- **`RoomScoreEngineTest`**: Validates health score boundaries, overlapping item penalties, and bounding box computations.
-- **`LayoutOptimizationEngineTest`**: Verifies deterministic rule checks (e.g. bed clearance, collision counting).
+---
 
-## 3. Performance Profiling
-During Phase 1 Optimization, the following benchmarks were established on a mid-range Android device:
+## 1. Testing Strategy
+Lumiroom follows a Test-Driven Development (TDD) approach where possible, augmented by rigorous manual QA for the Augmented Reality modules.
 
-| Metric | Target | Achieved |
-|--------|--------|----------|
-| AR FPS | 60 FPS | 58-60 FPS |
-| App Startup | < 2000ms | 1200ms |
-| Model Load Time | < 500ms | ~300ms |
-| DB Query (Catalog) | < 50ms | 12ms |
+### 1.1 Testing Pyramid
+- **Unit Tests (70%)**: Run via JUnit 4 on the local JVM. Targets ViewModels, Use Cases, Parsers, and Repositories.
+- **Integration/Instrumentation Tests (20%)**: Run via AndroidX Test on emulators/devices. Targets Room Database and Compose UI Navigation.
+- **Manual/AR Testing (10%)**: Physical device testing for ARCore spatial awareness, lighting estimation, and voice recognition.
 
-### 3.1 AR Optimization Techniques
-- **Lazy Loading:** `SceneView` nodes are only inflated when they enter the camera frustum.
-- **Texture Compression:** GLB files are optimized using Draco compression before distribution.
-- **Object Pooling:** To prevent garbage collection stutters, matrix transformations reuse allocated arrays rather than creating new ones per frame.
+## 2. Test Environments
+- **Local JVM**: JDK 17.
+- **Android Emulator**: Pixel 7 Pro (API 34).
+- **Physical Devices**: Samsung Galaxy S23 Ultra (API 34), Google Pixel 6 (API 33).
 
-## 4. Crashlytics Monitoring
-Firebase Crashlytics is actively monitoring production builds. Custom non-fatal exceptions are logged for:
-- ARCore session initialization failures.
-- Vertex AI generation timeouts.
-- File system read/write errors during GLB cache saving.
+## 3. Coverage Targets
+- **Domain Layer**: 90% Code Coverage.
+- **Data Layer (Repositories)**: 85% Code Coverage.
+- **UI Layer (Compose)**: 60% Code Coverage.
+
+## 4. Specific Testing Scenarios
+
+### 4.1 AR Testing
+Due to the physical nature of AR, automated UI tests mock the `ArSceneView`. Actual spatial testing requires manual execution:
+- **Scenario**: Verify Plane Detection.
+- **Action**: Pan the device across a textured floor.
+- **Expected**: A visual grid appears mapping the floor geometry within 3 seconds.
+
+### 4.2 Voice Command Testing
+The `CommandParser` is tested extensively via parameterized unit tests:
+- Input: *"Place the modern vanity here"* -> Output: `Action: Place, Target: Modern Vanity, Location: Raycast`.
+- Input: *"Remove that sofa"* -> Output: `Action: Remove, Target: Selected Item`.
+
+## 5. Bug Tracking and Failure Scenarios
+Bugs are tracked using GitHub Issues. Critical failure scenarios include:
+1. **ARCore Unsupported**: Handled gracefully by redirecting the user to the 2D planning mode.
+2. **Network Offline**: Handled via Room DB caching; all AR interactions function normally, cloud sync is queued.
