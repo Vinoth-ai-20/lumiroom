@@ -84,4 +84,7 @@ data class PlacedItemEntity(
     val label: String?,
 
     @ColumnInfo(name = "created_at") val createdAt: Long = System.currentTimeMillis(),
+
+    @ColumnInfo(name = "is_locked") val isLocked: Boolean = false,
+    @ColumnInfo(name = "is_visible") val isVisible: Boolean = true,
 )

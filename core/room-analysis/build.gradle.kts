@@ -30,5 +30,5 @@ dependencies {
 
     // Firebase Vertex AI
     implementation(platform(libs.firebase.bom))
-    implementation(libs.firebase.vertexai)
+    implementation(libs.firebase.ai)
 }

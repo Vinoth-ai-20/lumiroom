@@ -21,7 +21,8 @@ class SaveArSessionUseCase @Inject constructor(
             val roomId = existingRoomId ?: UUID.randomUUID().toString()
             val room = RoomDesignEntity(
                 id         = roomId,
-                userId     = "local", // TODO: replace with authenticated user ID in Milestone 1
+                userId     = "local_user", // Uses common user namespace for sync
+
                 name       = name,
                 description = null,
                 roomType   = "Living Room",

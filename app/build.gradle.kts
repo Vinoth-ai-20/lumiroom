@@ -107,6 +107,8 @@ dependencies {
     // ── Firebase ──────────────────────────────────────────────────────────────
     implementation(platform(libs.firebase.bom))
     implementation(libs.bundles.firebase)
+    implementation(libs.firebase.appcheck.playintegrity)
+    debugImplementation(libs.firebase.appcheck.debug)
 
     // ── WorkManager + Hilt ────────────────────────────────────────────────────
     implementation(libs.androidx.work.runtime)

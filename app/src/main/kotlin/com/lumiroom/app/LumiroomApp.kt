@@ -24,4 +24,24 @@ class LumiroomApp : Application(), Configuration.Provider {
             .setWorkerFactory(workerFactory)
             .setMinimumLoggingLevel(android.util.Log.INFO)
             .build()
+
+    override fun onCreate() {
+        super.onCreate()
+        try {
+            com.google.firebase.FirebaseApp.initializeApp(this)
+            android.util.Log.d("LumiroomAppCheck", "Firebase initialized")
+            val firebaseAppCheck = com.google.firebase.appcheck.FirebaseAppCheck.getInstance()
+            firebaseAppCheck.installAppCheckProviderFactory(
+                if (com.lumiroom.app.BuildConfig.DEBUG) {
+                    android.util.Log.d("LumiroomAppCheck", "Installing DebugAppCheckProviderFactory")
+                    com.google.firebase.appcheck.debug.DebugAppCheckProviderFactory.getInstance()
+                } else {
+                    android.util.Log.d("LumiroomAppCheck", "Installing PlayIntegrityAppCheckProviderFactory")
+                    com.google.firebase.appcheck.playintegrity.PlayIntegrityAppCheckProviderFactory.getInstance()
+                }
+            )
+        } catch (e: Exception) {
+            android.util.Log.e("LumiroomAppCheck", "Failed to initialize App Check", e)
+        }
+    }
 }

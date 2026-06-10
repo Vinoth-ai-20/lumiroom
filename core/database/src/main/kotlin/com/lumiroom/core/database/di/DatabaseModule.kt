@@ -48,6 +48,12 @@ object DatabaseModule {
                 db.execSQL("ALTER TABLE placed_item ADD COLUMN init_scale_z REAL NOT NULL DEFAULT 1.0")
             }
         })
+        .addMigrations(object : Migration(2, 3) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE placed_item ADD COLUMN is_locked INTEGER NOT NULL DEFAULT 0")
+                db.execSQL("ALTER TABLE placed_item ADD COLUMN is_visible INTEGER NOT NULL DEFAULT 1")
+            }
+        })
         .fallbackToDestructiveMigrationOnDowngrade()
         .build()
 

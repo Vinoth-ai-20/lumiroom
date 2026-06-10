@@ -5,7 +5,7 @@ import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
-import com.lumiroom.feature.ai_assistant.presentation.AiAssistantScreen
+import com.lumiroom.feature.ai_assistant.presentation.chat.ChatScreen
 import com.lumiroom.feature.ar.presentation.ArScreen
 import com.lumiroom.feature.auth.presentation.SignInScreen
 import com.lumiroom.feature.auth.presentation.SignUpScreen
@@ -194,10 +194,8 @@ fun LumiroomNavHost(
 
         // ── AI Assistant ───────────────────────────────────────────────────
         composable(LumiroomRoutes.AI_ASSISTANT) {
-            AiAssistantScreen(
-                roomDesignId = null,
-                onNavigateToCatalog = { navController.navigate(LumiroomRoutes.CATALOG) },
-                onNavigateBack = { navController.popBackStack() },
+            ChatScreen(
+                onNavigateBack = { navController.popBackStack() }
             )
         }
 

@@ -51,3 +51,6 @@ sceneview*.zip
 
 # Generated metadata
 output-metadata.json
+
+#scripts
+scripts/

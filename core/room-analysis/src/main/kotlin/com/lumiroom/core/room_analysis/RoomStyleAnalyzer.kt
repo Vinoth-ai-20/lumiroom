@@ -2,8 +2,9 @@ package com.lumiroom.core.room_analysis
 
 import android.graphics.Bitmap
 import com.google.firebase.Firebase
-import com.google.firebase.vertexai.vertexAI
-import com.google.firebase.vertexai.type.content
+import com.google.firebase.ai.ai
+import com.google.firebase.ai.type.GenerativeBackend
+import com.google.firebase.ai.type.content
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import javax.inject.Inject
@@ -31,7 +32,7 @@ class RoomStyleAnalyzer @Inject constructor() {
     
     // We instantiate lazily so it doesn't crash if Vertex is not set up
     private val generativeModel by lazy {
-        Firebase.vertexAI.generativeModel("gemini-1.5-flash")
+        Firebase.ai(backend = GenerativeBackend.googleAI()).generativeModel("gemini-1.5-flash")
     }
 
     /**

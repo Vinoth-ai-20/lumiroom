@@ -29,7 +29,7 @@ import com.lumiroom.core.database.entity.UserProfileEntity
         UserProfileEntity::class,
         AiSessionEntity::class,
     ],
-    version = 2,
+    version = 3,
     exportSchema = true,
 )
 abstract class LumiroomDatabase : RoomDatabase() {

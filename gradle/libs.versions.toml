@@ -33,6 +33,7 @@ sceneview                   = "2.3.0"
 
 # ── Firebase ──────────────────────────────────────────────────────────────────
 firebaseBom                 = "33.7.0"
+firebaseAi                  = "17.12.1"
 googleServices              = "4.4.4"
 
 # ── Network ───────────────────────────────────────────────────────────────────
@@ -119,7 +120,10 @@ firebase-firestore-ktx          = { group = "com.google.firebase",    name = "fi
 firebase-storage-ktx            = { group = "com.google.firebase",    name = "firebase-storage" }
 firebase-crashlytics-ktx        = { group = "com.google.firebase",    name = "firebase-crashlytics" }
 firebase-analytics-ktx          = { group = "com.google.firebase",    name = "firebase-analytics" }
-firebase-vertexai               = { group = "com.google.firebase",    name = "firebase-vertexai" }
+firebase-ai                     = { group = "com.google.firebase",    name = "firebase-ai",                  version.ref = "firebaseAi" }
+firebase-appcheck-playintegrity = { group = "com.google.firebase",    name = "firebase-appcheck-playintegrity" }
+firebase-appcheck-debug         = { group = "com.google.firebase",    name = "firebase-appcheck-debug" }
+firebase-config                 = { group = "com.google.firebase",    name = "firebase-config" }
 play-services-auth              = { group = "com.google.android.gms", name = "play-services-auth",           version = "21.3.0" }
 authentication-credentials      = { group = "androidx.credentials",   name = "credentials",                   version.ref = "credentials" }
 authentication-credentials-play = { group = "androidx.credentials",   name = "credentials-play-services-auth", version.ref = "credentials" }
@@ -177,7 +181,8 @@ firebase = [
     "firebase-storage-ktx",
     "firebase-crashlytics-ktx",
     "firebase-analytics-ktx",
-    "firebase-vertexai",
+    "firebase-ai",
+    "firebase-config",
 ]
 room = [
     "androidx-room-runtime",

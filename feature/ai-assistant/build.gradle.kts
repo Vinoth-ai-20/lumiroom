@@ -33,7 +33,8 @@ dependencies {
     implementation(libs.hilt.navigation.compose)
     ksp(libs.hilt.android.compiler)
     implementation(platform(libs.firebase.bom))
-    implementation(libs.firebase.vertexai)
+    implementation(libs.firebase.ai)
+    implementation(libs.firebase.config)
     implementation(libs.firebase.firestore.ktx)
     implementation(libs.kotlinx.serialization.json)
 }

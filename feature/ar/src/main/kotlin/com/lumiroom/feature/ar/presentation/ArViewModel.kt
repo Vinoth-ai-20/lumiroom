@@ -103,9 +103,21 @@ class ArViewModel @Inject constructor(
             _uiState.update { it.copy(currentRoomDesignId = roomId) }
             viewModelScope.launch(ioDispatcher) {
                 try {
+                    val roomWithItems = roomDesignDao.getRoomWithItemsOnce(roomId)
+                    if (roomWithItems != null) {
+                        val roomName = roomWithItems.roomDesign.name
+                        _uiState.update { it.copy(currentRoomName = roomName) }
+                    }
+                    
                     placedItemDao.getItemsWithFurnitureForRoom(roomId).collect { itemsWithFurniture ->
+                        val lockedIds = itemsWithFurniture.filter { it.placedItem.isLocked }.map { it.placedItem.id }.toSet()
+                        val hiddenIds = itemsWithFurniture.filter { !it.placedItem.isVisible }.map { it.placedItem.id }.toSet()
                         _uiState.update { state -> 
-                            state.copy(placedItems = itemsWithFurniture)
+                            state.copy(
+                                placedItems = itemsWithFurniture,
+                                lockedItemIds = lockedIds,
+                                hiddenItemIds = hiddenIds
+                            )
                         }
                     }
                 } catch (e: Exception) {
@@ -470,9 +482,15 @@ class ArViewModel @Inject constructor(
     fun onSaveRoom(name: String) {
         viewModelScope.launch(ioDispatcher) {
             _uiState.update { it.copy(isSaving = true) }
+            val itemsToSave = _uiState.value.placedItems.map { 
+                it.placedItem.copy(
+                    isLocked = _uiState.value.lockedItemIds.contains(it.placedItem.id),
+                    isVisible = !_uiState.value.hiddenItemIds.contains(it.placedItem.id)
+                )
+            }
             val result = saveArSessionUseCase(
                 name = name,
-                items = _uiState.value.placedItems.map { it.placedItem },
+                items = itemsToSave,
                 existingRoomId = _uiState.value.currentRoomDesignId,
             )
             _uiState.update {
