@@ -27,7 +27,7 @@ jobs:
 
       - name: Create google-services.json placeholder
         run: |
-          echo '{"project_info":{"project_number":"000","project_id":"lumiroom-dev","storage_bucket":"lumiroom-dev.appspot.com"},"client":[{"client_info":{"mobilesdk_app_id":"1:000:android:000","android_client_info":{"package_name":"com.lumiroom.app.debug"}},"oauth_client":[],"api_key":[{"current_key":"placeholder"}],"services":{"appinvite_service":{"other_platform_oauth_client":[]}}}],"configuration_version":"1"}' > app/google-services.json
+          echo '{"project_info":{"project_number":"000","project_id":"lumiroom-dev","storage_bucket":"lumiroom-dev.appspot.com"},"client":[{"client_info":{"mobilesdk_app_id":"1:000:android:000","android_client_info":{"package_name":"com.lumiroom.app"}},"oauth_client":[],"api_key":[{"current_key":"placeholder"}],"services":{"appinvite_service":{"other_platform_oauth_client":[]}}}],"configuration_version":"1"}' > app/google-services.json
 
       - name: Android Lint
         run: ./gradlew lintDebug || true
