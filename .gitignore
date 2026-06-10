@@ -54,3 +54,6 @@ output-metadata.json
 
 #scripts
 scripts/
+
+#temp
+temp_extract/

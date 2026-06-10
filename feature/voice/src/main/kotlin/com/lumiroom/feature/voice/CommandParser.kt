@@ -31,6 +31,9 @@ class CommandParser @Inject constructor() {
     private val deleteSelectedPattern = Regex("""(?:delete|remove)\s+(?:selected|it)""")
     private val removePattern = Regex("""(?:remove|delete|take away)\s+(?:the\s+)?(.+)""")
     private val replacePattern = Regex("""replace\s+(?:furniture|item|with\s+)?(.+)""")
+    private val hideObjectPattern = Regex("""(?:hide|invisible)\s+(?:the\s+)?(?:object|item|selected)""")
+    private val lockObjectPattern = Regex("""(?:lock|freeze)\s+(?:the\s+)?(?:object|item|selected)""")
+    private val resetObjectPattern = Regex("""(?:reset|restore)\s+(?:the\s+)?(?:object|item|selected)""")
 
     // Room Management
     private val saveRoomPattern = Regex("""save\s+(?:the\s+)?room""")
@@ -93,6 +96,9 @@ class CommandParser @Inject constructor() {
 
         // Editing
         deleteSelectedPattern.find(normalized)?.let { return VoiceCommand.DeleteSelected }
+        hideObjectPattern.find(normalized)?.let { return VoiceCommand.HideObject }
+        lockObjectPattern.find(normalized)?.let { return VoiceCommand.LockObject }
+        resetObjectPattern.find(normalized)?.let { return VoiceCommand.ResetObject }
         replacePattern.find(normalized)?.let { match ->
             return VoiceCommand.Replace(match.groupValues[1].trim())
         }
@@ -130,6 +136,14 @@ class CommandParser @Inject constructor() {
             return VoiceCommand.Place(match.groupValues[1].trim())
         }
 
+        // Fuzzy Keyword Fallbacks
+        if (normalized.contains("hide") && (normalized.contains("object") || normalized.contains("item"))) return VoiceCommand.HideObject
+        if (normalized.contains("lock") && (normalized.contains("object") || normalized.contains("item"))) return VoiceCommand.LockObject
+        if (normalized.contains("reset") && (normalized.contains("object") || normalized.contains("item"))) return VoiceCommand.ResetObject
+        if (normalized.contains("delete") && (normalized.contains("object") || normalized.contains("item") || normalized.contains("selected"))) return VoiceCommand.DeleteSelected
+        if (normalized.contains("save") && normalized.contains("room")) return VoiceCommand.SaveRoom
+        if (normalized.contains("load") && normalized.contains("room")) return VoiceCommand.LoadRoom
+
         return VoiceCommand.Unknown(transcript)
     }
 }
@@ -150,6 +164,9 @@ sealed class VoiceCommand {
     data class Move(val direction: String) : VoiceCommand()
 
     object DeleteSelected : VoiceCommand()
+    object HideObject : VoiceCommand()
+    object LockObject : VoiceCommand()
+    object ResetObject : VoiceCommand()
 
     object SaveRoom : VoiceCommand()
     object LoadRoom : VoiceCommand()

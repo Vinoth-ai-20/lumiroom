@@ -654,6 +654,30 @@ class ArViewModel @Inject constructor(
             is VoiceCommand.Move -> {
             }
             is VoiceCommand.DeleteSelected -> onRemoveSelectedItems()
+            is VoiceCommand.HideObject -> {
+                val selectedId = _uiState.value.selectedItemIds.firstOrNull()
+                if (selectedId != null) {
+                    toggleVisibility(selectedId)
+                } else {
+                    viewModelScope.launch { _events.emit(ArViewEvent.ShowSnackbar("No item selected to hide")) }
+                }
+            }
+            is VoiceCommand.LockObject -> {
+                val selectedId = _uiState.value.selectedItemIds.firstOrNull()
+                if (selectedId != null) {
+                    toggleLock(selectedId)
+                } else {
+                    viewModelScope.launch { _events.emit(ArViewEvent.ShowSnackbar("No item selected to lock")) }
+                }
+            }
+            is VoiceCommand.ResetObject -> {
+                val selectedId = _uiState.value.selectedItemIds.firstOrNull()
+                if (selectedId != null) {
+                    onResetTransform()
+                } else {
+                    viewModelScope.launch { _events.emit(ArViewEvent.ShowSnackbar("No item selected to reset")) }
+                }
+            }
             is VoiceCommand.SaveRoom -> onSaveRoom(_uiState.value.currentRoomName)
             is VoiceCommand.LoadRoom -> { /* Implementation for later navigation */ }
             is VoiceCommand.CreateRoom -> { /* Implementation for later navigation */ }

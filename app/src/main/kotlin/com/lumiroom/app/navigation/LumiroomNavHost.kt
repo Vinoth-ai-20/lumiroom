@@ -31,6 +31,15 @@ fun LumiroomNavHost(
     navController: NavHostController = rememberNavController(),
     startDestination: String = LumiroomRoutes.SPLASH,
 ) {
+    val safeNavigateBack: () -> Unit = {
+        if (!navController.popBackStack()) {
+            navController.navigate(LumiroomRoutes.CATALOG) {
+                popUpTo(0) { inclusive = true }
+                launchSingleTop = true
+            }
+        }
+    }
+
     NavHost(
         navController = navController,
         startDestination = startDestination,
@@ -84,7 +93,7 @@ fun LumiroomNavHost(
                         popUpTo(LumiroomRoutes.SPLASH) { inclusive = true }
                     }
                 },
-                onNavigateBack = { navController.popBackStack() },
+                onNavigateBack = safeNavigateBack,
             )
         }
 
@@ -94,9 +103,27 @@ fun LumiroomNavHost(
                 onNavigateToDetail = { id ->
                     navController.navigate(LumiroomRoutes.furnitureDetail(id))
                 },
-                onNavigateToAr = { navController.navigate(LumiroomRoutes.AR) },
-                onNavigateToSaved = { navController.navigate(LumiroomRoutes.SAVED_ROOMS) },
-                onNavigateToAi = { navController.navigate(LumiroomRoutes.AI_ASSISTANT) },
+                onNavigateToAr = { 
+                    navController.navigate(LumiroomRoutes.AR) {
+                        popUpTo(LumiroomRoutes.CATALOG) { saveState = true }
+                        launchSingleTop = true
+                        restoreState = true
+                    }
+                },
+                onNavigateToSaved = { 
+                    navController.navigate(LumiroomRoutes.SAVED_ROOMS) {
+                        popUpTo(LumiroomRoutes.CATALOG) { saveState = true }
+                        launchSingleTop = true
+                        restoreState = true
+                    }
+                },
+                onNavigateToAi = { 
+                    navController.navigate(LumiroomRoutes.AI_ASSISTANT) {
+                        popUpTo(LumiroomRoutes.CATALOG) { saveState = true }
+                        launchSingleTop = true
+                        restoreState = true
+                    }
+                },
                 onNavigateToSettings = { navController.navigate(LumiroomRoutes.SETTINGS) },
                 onNavigateToFavorites = { navController.navigate(LumiroomRoutes.FAVORITES) },
             )
@@ -115,7 +142,7 @@ fun LumiroomNavHost(
                         restoreState = true
                     }
                 },
-                onNavigateBack = { navController.popBackStack() },
+                onNavigateBack = safeNavigateBack,
             )
         }
 
@@ -139,8 +166,14 @@ fun LumiroomNavHost(
                     }
                 },
                 onNavigateToPlanner = { navController.navigate(LumiroomRoutes.ROOM_PLANNER) },
-                onNavigateToAi = { navController.navigate(LumiroomRoutes.AI_ASSISTANT) },
-                onNavigateBack = { navController.popBackStack() },
+                onNavigateToAi = { 
+                    navController.navigate(LumiroomRoutes.AI_ASSISTANT) {
+                        popUpTo(LumiroomRoutes.CATALOG) { saveState = true }
+                        launchSingleTop = true
+                        restoreState = true
+                    }
+                },
+                onNavigateBack = safeNavigateBack,
             )
         }
         
@@ -161,15 +194,21 @@ fun LumiroomNavHost(
                     }
                 },
                 onNavigateToPlanner = { navController.navigate(LumiroomRoutes.ROOM_PLANNER) },
-                onNavigateToAi = { navController.navigate(LumiroomRoutes.AI_ASSISTANT) },
-                onNavigateBack = { navController.popBackStack() },
+                onNavigateToAi = { 
+                    navController.navigate(LumiroomRoutes.AI_ASSISTANT) {
+                        popUpTo(LumiroomRoutes.CATALOG) { saveState = true }
+                        launchSingleTop = true
+                        restoreState = true
+                    }
+                },
+                onNavigateBack = safeNavigateBack,
             )
         }
 
         // ── Room Planner ───────────────────────────────────────────────────
         composable(LumiroomRoutes.ROOM_PLANNER) {
             RoomPlannerScreen(
-                onNavigateBack = { navController.popBackStack() },
+                onNavigateBack = safeNavigateBack,
                 onNavigateToAi = { navController.navigate(LumiroomRoutes.AI_ASSISTANT) }
             )
         }
@@ -180,14 +219,14 @@ fun LumiroomNavHost(
                 onNavigateToAr = { roomId ->
                     navController.navigate(LumiroomRoutes.arWithRoom(roomId))
                 },
-                onNavigateBack = { navController.popBackStack() },
+                onNavigateBack = safeNavigateBack,
             )
         }
 
         // ── Favorites ──────────────────────────────────────────────────────
         composable(LumiroomRoutes.FAVORITES) {
             com.lumiroom.feature.catalog.presentation.FavoritesScreen(
-                onNavigateBack = { navController.popBackStack() },
+                onNavigateBack = safeNavigateBack,
                 onNavigateToDetail = { id -> navController.navigate(LumiroomRoutes.furnitureDetail(id)) }
             )
         }
@@ -195,14 +234,14 @@ fun LumiroomNavHost(
         // ── AI Assistant ───────────────────────────────────────────────────
         composable(LumiroomRoutes.AI_ASSISTANT) {
             ChatScreen(
-                onNavigateBack = { navController.popBackStack() }
+                onNavigateBack = safeNavigateBack
             )
         }
 
         // ── Settings ───────────────────────────────────────────────────────
         composable(LumiroomRoutes.SETTINGS) {
             SettingsScreen(
-                onNavigateBack = { navController.popBackStack() },
+                onNavigateBack = safeNavigateBack,
                 onNavigateToAbout = { navController.navigate(LumiroomRoutes.ABOUT) },
                 onSignOut = {
                     navController.navigate(LumiroomRoutes.SIGN_IN) {
@@ -214,7 +253,7 @@ fun LumiroomNavHost(
         // ── About ──────────────────────────────────────────────────────────
         composable(LumiroomRoutes.ABOUT) {
             com.lumiroom.feature.settings.presentation.AboutScreen(
-                onNavigateBack = { navController.popBackStack() }
+                onNavigateBack = safeNavigateBack
             )
         }
     }

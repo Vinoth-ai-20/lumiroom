@@ -70,6 +70,7 @@ fun ArScreen(
     var currentFrame by remember { mutableStateOf<Frame?>(null) }
     var showCatalogOverlay by remember { mutableStateOf(false) }
     val anchorCache = remember { mutableMapOf<String, Anchor>() }
+    val transformNodesMap = remember { mutableMapOf<String, Node>() }
 
     // Used for dragging delta calculations in ROTATE mode
     var lastTouchX by remember { mutableStateOf(0f) }
@@ -88,13 +89,19 @@ fun ArScreen(
 
     // Initialize AR Engine and Loaders to ModelNodes
     LaunchedEffect(uiState.placedItems, uiState.selectedItemIds, uiState.lockedItemIds, uiState.hiddenItemIds) {
+        // Cleanup removed items
         val currentIds = uiState.placedItems.map { it.placedItem.id }.toSet()
-        val existingNodes = childNodes.mapNotNull { it.name }.toSet()
+        val nodeIds = childNodes.mapNotNull { it.name }.toSet()
+        val idsToRemove = nodeIds - currentIds
+        idsToRemove.forEach { idToRemove ->
+            val nodeToRemove = childNodes.find { it.name == idToRemove }
+            if (nodeToRemove != null) {
+                childNodes.remove(nodeToRemove)
+                transformNodesMap.remove(idToRemove)
+            }
+        }
         
-        val toRemove = existingNodes - currentIds
-        childNodes.removeAll { it.name in toRemove }
-        
-        val toAdd = currentIds - existingNodes
+        val toAdd = currentIds - nodeIds
         toAdd.forEach { id ->
             val placedItem = uiState.placedItems.find { it.placedItem.id == id } ?: return@forEach
             coroutineScope.launch {
@@ -132,6 +139,7 @@ fun ArScreen(
                             placedItem.placedItem.rotX, placedItem.placedItem.rotY,
                             placedItem.placedItem.rotZ, placedItem.placedItem.rotW
                         )
+                        transformNodesMap[id] = this
                     }
 
                     val modelNode = object : ModelNode(modelInstance = modelInstance) {
@@ -224,37 +232,6 @@ fun ArScreen(
 
                         override fun onRotate(detector: io.github.sceneview.gesture.RotateGestureDetector, e: android.view.MotionEvent): Boolean {
                             return false // Rotation handled by onMove 1-finger swipe
-                        }
-
-                        override fun onScale(detector: io.github.sceneview.gesture.ScaleGestureDetector, e: android.view.MotionEvent): Boolean {
-                            if (uiState.lockedItemIds.contains(id)) return false
-                            if (uiState.interactionMode != InteractionMode.SCALE || !uiState.selectedItemIds.contains(id)) return false
-                            super.onScale(detector, e)
-                            val factor = detector.scaleFactor
-                            val dampenedFactor = 1.0f + (factor - 1.0f) * 0.15f
-                            val newScaleX = (transformNode.scale.x * dampenedFactor).coerceIn(0.1f, 5.0f)
-                            val newScaleY = (transformNode.scale.y * dampenedFactor).coerceIn(0.1f, 5.0f)
-                            val newScaleZ = (transformNode.scale.z * dampenedFactor).coerceIn(0.1f, 5.0f)
-                            transformNode.scale = Scale(newScaleX, newScaleY, newScaleZ)
-                            
-                            val percentage = (newScaleX / placedItem.placedItem.initScaleX * 100).toInt()
-                            activeScaleText = "$percentage%"
-                            return true
-                        }
-
-                        override fun onScaleEnd(detector: io.github.sceneview.gesture.ScaleGestureDetector, e: android.view.MotionEvent) {
-                            if (uiState.interactionMode != InteractionMode.SCALE || !uiState.selectedItemIds.contains(id)) return
-                            super.onScaleEnd(detector, e)
-                            activeScaleText = null
-                            viewModel.onItemTransformed(
-                                itemId = id,
-                                posX = baseNode.worldPosition.x,
-                                posY = baseNode.worldPosition.y,
-                                posZ = baseNode.worldPosition.z,
-                                rotX = transformNode.quaternion.x, rotY = transformNode.quaternion.y, rotZ = transformNode.quaternion.z, rotW = transformNode.quaternion.w,
-                                scaleX = transformNode.scale.x, scaleY = transformNode.scale.y, scaleZ = transformNode.scale.z,
-                                matrixJson = ""
-                            )
                         }
                     }.apply {
                         name = id
@@ -397,6 +374,46 @@ fun ArScreen(
                 viewModel.onSessionError(exception.message ?: "Unknown AR Session Error")
             },
             onGestureListener = object : io.github.sceneview.gesture.GestureDetector.SimpleOnGestureListener() {
+                override fun onScale(detector: io.github.sceneview.gesture.ScaleGestureDetector, e: android.view.MotionEvent, node: io.github.sceneview.node.Node?) {
+                    if (uiState.interactionMode != InteractionMode.SCALE || uiState.selectedItemIds.isEmpty()) return
+                    val selectedId = uiState.selectedItemIds.first()
+                    if (uiState.lockedItemIds.contains(selectedId)) return
+                    
+                    val transformNode = transformNodesMap[selectedId] ?: return
+                    val placedItem = uiState.placedItems.find { it.placedItem.id == selectedId } ?: return
+                    
+                    super.onScale(detector, e, node)
+                    val factor = detector.scaleFactor
+                    val dampenedFactor = 1.0f + (factor - 1.0f) * 0.15f
+                    val newScaleX = (transformNode.scale.x * dampenedFactor).coerceIn(0.1f, 5.0f)
+                    val newScaleY = (transformNode.scale.y * dampenedFactor).coerceIn(0.1f, 5.0f)
+                    val newScaleZ = (transformNode.scale.z * dampenedFactor).coerceIn(0.1f, 5.0f)
+                    transformNode.scale = Scale(newScaleX, newScaleY, newScaleZ)
+                    
+                    val percentage = (newScaleX / placedItem.placedItem.initScaleX * 100).toInt()
+                    activeScaleText = "$percentage%"
+                }
+
+                override fun onScaleEnd(detector: io.github.sceneview.gesture.ScaleGestureDetector, e: android.view.MotionEvent, node: io.github.sceneview.node.Node?) {
+                    if (uiState.interactionMode != InteractionMode.SCALE || uiState.selectedItemIds.isEmpty()) return
+                    val selectedId = uiState.selectedItemIds.first()
+                    
+                    val transformNode = transformNodesMap[selectedId] ?: return
+                    val baseNode = childNodes.find { it.name == selectedId } ?: return
+                    
+                    super.onScaleEnd(detector, e, node)
+                    activeScaleText = null
+                    viewModel.onItemTransformed(
+                        itemId = selectedId,
+                        posX = baseNode.worldPosition.x,
+                        posY = baseNode.worldPosition.y,
+                        posZ = baseNode.worldPosition.z,
+                        rotX = transformNode.quaternion.x, rotY = transformNode.quaternion.y, rotZ = transformNode.quaternion.z, rotW = transformNode.quaternion.w,
+                        scaleX = transformNode.scale.x, scaleY = transformNode.scale.y, scaleZ = transformNode.scale.z,
+                        matrixJson = ""
+                    )
+                }
+
                 override fun onSingleTapConfirmed(e: android.view.MotionEvent, node: io.github.sceneview.node.Node?) {
                     if (node != null && node.name != null) {
                         viewModel.onItemSelected(node.name!!, multiSelect = false) // Add long press later for multi-select
