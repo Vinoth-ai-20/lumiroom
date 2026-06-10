@@ -120,9 +120,18 @@ class DesignAssistantViewModel @Inject constructor(
                     updatedMessages[modelMessageIndex] = ChatMessage(modelReply, false)
                     _uiState.value = _uiState.value.copy(messages = updatedMessages)
                 }
+            } catch (e: java.net.UnknownHostException) {
+                val updatedMessages = _uiState.value.messages.toMutableList()
+                updatedMessages.add(ChatMessage("Network error: Please check your internet connection and try again.", false))
+                _uiState.value = _uiState.value.copy(messages = updatedMessages)
+            } catch (e: com.google.firebase.vertexai.type.ServerException) {
+                val updatedMessages = _uiState.value.messages.toMutableList()
+                updatedMessages.add(ChatMessage("Service timeout: The AI service is currently taking too long to respond. Please try again later.", false))
+                _uiState.value = _uiState.value.copy(messages = updatedMessages)
             } catch (e: Exception) {
                 val updatedMessages = _uiState.value.messages.toMutableList()
-                updatedMessages.add(ChatMessage("Sorry, I couldn't connect to my AI brain. Please check your internet connection.", false))
+                val message = e.localizedMessage ?: "an unknown error occurred."
+                updatedMessages.add(ChatMessage("Sorry, I encountered an error connecting to my brain. Details: $message", false))
                 _uiState.value = _uiState.value.copy(messages = updatedMessages)
             } finally {
                 _uiState.value = _uiState.value.copy(isLoading = false)

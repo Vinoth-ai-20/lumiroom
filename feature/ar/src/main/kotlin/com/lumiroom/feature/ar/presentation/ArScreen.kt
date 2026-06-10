@@ -156,7 +156,8 @@ fun ArScreen(
                                 
                                 val euler = dev.romainguy.kotlin.math.eulerAngles(transformNode.quaternion)
                                 val degrees = Math.toDegrees(euler.y.toDouble()).toInt()
-                                activeRotationText = "$degrees°"
+                                val normalizedDegrees = ((degrees % 360) + 360) % 360
+                                activeRotationText = "$normalizedDegrees°"
                                 
                                 return true
                             }
@@ -189,12 +190,14 @@ fun ArScreen(
                                     val newAnchor = hitResult.createAnchor()
                                     anchorNode.anchor = newAnchor
                                     
-                                    val pose = newAnchor.pose
-                                    viewModel.onPlaneTapped(
-                                        instanceId = id,
-                                        furnitureId = placedItem.furniture.id,
-                                        hitPosX = pose.tx(), hitPosY = pose.ty(), hitPosZ = pose.tz(),
-                                        rotX = transformNode.quaternion.x, rotY = transformNode.quaternion.y, rotZ = transformNode.quaternion.z, rotW = transformNode.quaternion.w
+                                    viewModel.onItemTransformed(
+                                        itemId = id,
+                                        posX = baseNode.worldPosition.x,
+                                        posY = baseNode.worldPosition.y,
+                                        posZ = baseNode.worldPosition.z,
+                                        rotX = transformNode.quaternion.x, rotY = transformNode.quaternion.y, rotZ = transformNode.quaternion.z, rotW = transformNode.quaternion.w,
+                                        scaleX = transformNode.scale.x, scaleY = transformNode.scale.y, scaleZ = transformNode.scale.z,
+                                        matrixJson = ""
                                     )
                                 }
                             }
@@ -222,9 +225,10 @@ fun ArScreen(
                             if (uiState.interactionMode != InteractionMode.SCALE || !uiState.selectedItemIds.contains(id)) return false
                             super.onScale(detector, e)
                             val factor = detector.scaleFactor
-                            val newScaleX = (transformNode.scale.x * factor).coerceIn(0.1f, 5.0f)
-                            val newScaleY = (transformNode.scale.y * factor).coerceIn(0.1f, 5.0f)
-                            val newScaleZ = (transformNode.scale.z * factor).coerceIn(0.1f, 5.0f)
+                            val dampenedFactor = 1.0f + (factor - 1.0f) * 0.15f
+                            val newScaleX = (transformNode.scale.x * dampenedFactor).coerceIn(0.1f, 5.0f)
+                            val newScaleY = (transformNode.scale.y * dampenedFactor).coerceIn(0.1f, 5.0f)
+                            val newScaleZ = (transformNode.scale.z * dampenedFactor).coerceIn(0.1f, 5.0f)
                             transformNode.scale = Scale(newScaleX, newScaleY, newScaleZ)
                             
                             val percentage = (newScaleX / placedItem.placedItem.initScaleX * 100).toInt()
@@ -656,7 +660,8 @@ fun ArScreen(
                     onNavigateToAr = { showCatalogOverlay = false },
                     onNavigateToSaved = { showCatalogOverlay = false; onNavigateToCatalog() },
                     onNavigateToAi = { showCatalogOverlay = false; onNavigateToAi() },
-                    onNavigateToSettings = { showCatalogOverlay = false }
+                    onNavigateToSettings = { showCatalogOverlay = false },
+                    onNavigateToFavorites = { showCatalogOverlay = false; onNavigateToCatalog() }
                 )
             }
         }

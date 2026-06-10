@@ -1,3 +1,6 @@
+import java.io.File
+import java.util.UUID
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
@@ -123,7 +126,7 @@ tasks.register("generateFurnitureCatalog") {
     val modelsDir = rootProject.file("models")
     val thumbnailsDir = rootProject.file("thumbnails")
     val outputAssetsDir = project.file("src/main/assets")
-    val outputFile = java.io.File(outputAssetsDir, "furniture_seed.json")
+    val outputFile = File(outputAssetsDir, "furniture_seed.json")
 
     // We only declare inputs if they exist to avoid task configuration errors
     if (modelsDir.exists()) inputs.dir(modelsDir)
@@ -133,10 +136,10 @@ tasks.register("generateFurnitureCatalog") {
     doLast {
         if (!outputAssetsDir.exists()) outputAssetsDir.mkdirs()
         
-        val modelsAssetsDir = java.io.File(outputAssetsDir, "models")
+        val modelsAssetsDir = File(outputAssetsDir, "models")
         if (!modelsAssetsDir.exists()) modelsAssetsDir.mkdirs()
         
-        val thumbnailsAssetsDir = java.io.File(outputAssetsDir, "thumbnails")
+        val thumbnailsAssetsDir = File(outputAssetsDir, "thumbnails")
         if (!thumbnailsAssetsDir.exists()) thumbnailsAssetsDir.mkdirs()
 
         val jsonItems = mutableListOf<String>()
@@ -164,7 +167,7 @@ tasks.register("generateFurnitureCatalog") {
                 val title = fileName.split("_").joinToString(" ") { word -> word.replaceFirstChar { it.uppercase() } }
                 
                 // Copy to assets
-                val destModel = java.io.File(modelsAssetsDir, glbFile.name)
+                val destModel = File(modelsAssetsDir, glbFile.name)
                 glbFile.copyTo(destModel, overwrite = true)
                 
                 // Find matching thumbnail
@@ -172,13 +175,13 @@ tasks.register("generateFurnitureCatalog") {
                 if (thumbnailsDir.exists()) {
                     val thumbFile = thumbnailsDir.walkTopDown().find { it.nameWithoutExtension == fileName && it.extension == "webp" }
                     if (thumbFile != null && thumbFile.exists()) {
-                        val destThumb = java.io.File(thumbnailsAssetsDir, thumbFile.name)
+                        val destThumb = File(thumbnailsAssetsDir, thumbFile.name)
                         thumbFile.copyTo(destThumb, overwrite = true)
                         thumbPath = "thumbnails/${thumbFile.name}"
                     }
                 }
 
-                val id = java.util.UUID.nameUUIDFromBytes(fileName.toByteArray()).toString()
+                val id = UUID.nameUUIDFromBytes(fileName.toByteArray()).toString()
                 
                 val jsonItem = """
                 {

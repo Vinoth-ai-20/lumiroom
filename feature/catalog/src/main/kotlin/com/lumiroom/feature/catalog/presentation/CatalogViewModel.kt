@@ -69,7 +69,7 @@ class CatalogViewModel @Inject constructor(
     }
 
     fun onCategorySelected(category: String?) {
-        val newCategory = if (_selectedCategory.value == category) null else category
+        val newCategory = if (category == "All" || _selectedCategory.value == category) null else category
         _selectedCategory.value = newCategory
         _uiState.update { it.copy(selectedCategory = newCategory) }
     }

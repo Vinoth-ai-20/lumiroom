@@ -17,6 +17,7 @@ import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
@@ -41,10 +42,16 @@ import com.lumiroom.feature.voice.VoiceCommand
 import com.lumiroom.feature.voice.VoiceCommandExecutor
 import com.lumiroom.feature.voice.VoiceCommandManager
 import com.lumiroom.feature.voice.VoiceResult
+import androidx.lifecycle.SavedStateHandle
+import com.lumiroom.core.database.dao.RoomDesignDao
+import com.lumiroom.core.database.relation.PlacedItemWithFurniture
 import kotlinx.coroutines.flow.combine
 
 @HiltViewModel
 class ArViewModel @Inject constructor(
+    private val savedStateHandle: SavedStateHandle,
+    private val roomDesignDao: RoomDesignDao,
+    private val placedItemDao: com.lumiroom.core.database.dao.PlacedItemDao,
     private val placeFurnitureUseCase: PlaceFurnitureUseCase,
     private val removeFurnitureUseCase: RemoveFurnitureUseCase,
     private val transformFurnitureUseCase: TransformFurnitureUseCase,
@@ -89,6 +96,23 @@ class ArViewModel @Inject constructor(
         
         // Auto-save
         layoutPersistenceManager.startAutoSaveLoop()
+        
+        // Load Saved Room
+        val roomId = savedStateHandle.get<String>("roomId")
+        if (roomId != null) {
+            _uiState.update { it.copy(currentRoomDesignId = roomId) }
+            viewModelScope.launch(ioDispatcher) {
+                try {
+                    placedItemDao.getItemsWithFurnitureForRoom(roomId).collect { itemsWithFurniture ->
+                        _uiState.update { state -> 
+                            state.copy(placedItems = itemsWithFurniture)
+                        }
+                    }
+                } catch (e: Exception) {
+                    android.util.Log.e("ArViewModel", "Failed to load room", e)
+                }
+            }
+        }
     }
     
     override fun onCleared() {
@@ -323,6 +347,14 @@ class ArViewModel @Inject constructor(
                     transformMatrix = matrixJson
                 )
             )
+            
+            _uiState.update { state ->
+                val newItems = state.placedItems.map { 
+                    if (it.placedItem.id == itemId) newItem else it 
+                }
+                state.copy(placedItems = newItems)
+            }
+            
             pushUndo(ArAction.Transform(itemId, oldItem, newItem))
             
             // Push to LayoutPersistenceManager queue for auto-save

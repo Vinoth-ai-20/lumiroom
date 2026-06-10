@@ -98,6 +98,7 @@ fun LumiroomNavHost(
                 onNavigateToSaved = { navController.navigate(LumiroomRoutes.SAVED_ROOMS) },
                 onNavigateToAi = { navController.navigate(LumiroomRoutes.AI_ASSISTANT) },
                 onNavigateToSettings = { navController.navigate(LumiroomRoutes.SETTINGS) },
+                onNavigateToFavorites = { navController.navigate(LumiroomRoutes.FAVORITES) },
             )
         }
 
@@ -142,6 +143,28 @@ fun LumiroomNavHost(
                 onNavigateBack = { navController.popBackStack() },
             )
         }
+        
+        composable(
+            route = LumiroomRoutes.AR_WITH_ROOM,
+            arguments = listOf(androidx.navigation.navArgument("roomId") {
+                type = androidx.navigation.NavType.StringType
+            })
+        ) { backStackEntry ->
+            val roomId = backStackEntry.arguments?.getString("roomId")
+            ArScreen(
+                furnitureId = null,
+                onNavigateToCatalog = { 
+                    navController.navigate(LumiroomRoutes.CATALOG) {
+                        popUpTo(LumiroomRoutes.CATALOG) { saveState = true }
+                        launchSingleTop = true
+                        restoreState = true
+                    }
+                },
+                onNavigateToPlanner = { navController.navigate(LumiroomRoutes.ROOM_PLANNER) },
+                onNavigateToAi = { navController.navigate(LumiroomRoutes.AI_ASSISTANT) },
+                onNavigateBack = { navController.popBackStack() },
+            )
+        }
 
         // ── Room Planner ───────────────────────────────────────────────────
         composable(LumiroomRoutes.ROOM_PLANNER) {
@@ -158,6 +181,14 @@ fun LumiroomNavHost(
                     navController.navigate(LumiroomRoutes.arWithRoom(roomId))
                 },
                 onNavigateBack = { navController.popBackStack() },
+            )
+        }
+
+        // ── Favorites ──────────────────────────────────────────────────────
+        composable(LumiroomRoutes.FAVORITES) {
+            com.lumiroom.feature.catalog.presentation.FavoritesScreen(
+                onNavigateBack = { navController.popBackStack() },
+                onNavigateToDetail = { id -> navController.navigate(LumiroomRoutes.furnitureDetail(id)) }
             )
         }
 
@@ -181,6 +212,7 @@ fun LumiroomNavHost(
                     }
                 },
             )
+        }
         // ── About ──────────────────────────────────────────────────────────
         composable(LumiroomRoutes.ABOUT) {
             com.lumiroom.feature.settings.presentation.AboutScreen(
@@ -204,6 +236,7 @@ object LumiroomRoutes {
     const val AR_WITH_ROOM      = "ar/room/{roomId}"
     const val ROOM_PLANNER      = "room_planner"
     const val SAVED_ROOMS       = "saved_rooms"
+    const val FAVORITES         = "favorites"
     const val AI_ASSISTANT      = "ai_assistant"
     const val SETTINGS          = "settings"
     const val ABOUT             = "about"

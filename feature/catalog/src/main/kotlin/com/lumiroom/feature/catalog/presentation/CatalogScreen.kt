@@ -14,7 +14,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import com.lumiroom.core.ui.components.FurnitureCard
 import com.lumiroom.core.ui.components.LoadingOverlay
 
-val CATEGORIES = listOf("Favorites", "Bathroom", "Bed", "Chair", "Closet", "Cushion", "Drawer", "Kitchen", "Sofa", "Table")
+private val CATEGORIES = listOf("All", "Favorites", "Sofas", "Chairs", "Tables", "Beds", "Cabinets", "Shelves", "Decor")
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -24,6 +24,7 @@ fun CatalogScreen(
     onNavigateToSaved: () -> Unit,
     onNavigateToAi: () -> Unit,
     onNavigateToSettings: () -> Unit,
+    onNavigateToFavorites: () -> Unit,
     viewModel: CatalogViewModel = hiltViewModel(),
 ) {
     val uiState by viewModel.uiState.collectAsState()
@@ -43,6 +44,9 @@ fun CatalogScreen(
                     }
                 },
                 actions = {
+                    IconButton(onClick = onNavigateToFavorites) {
+                        Icon(Icons.Default.Favorite, contentDescription = "Favorites")
+                    }
                     IconButton(onClick = onNavigateToSettings) {
                         Icon(Icons.Default.Settings, contentDescription = "Settings")
                     }
@@ -103,7 +107,7 @@ fun CatalogScreen(
                     ) {
                         items(CATEGORIES) { category ->
                             FilterChip(
-                                selected = uiState.selectedCategory == category,
+                                selected = (uiState.selectedCategory == category) || (category == "All" && uiState.selectedCategory == null),
                                 onClick = { viewModel.onCategorySelected(category) },
                                 label = { Text(category) }
                             )
