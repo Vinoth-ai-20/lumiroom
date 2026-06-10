@@ -473,6 +473,7 @@ class ArViewModel @Inject constructor(
             val result = saveArSessionUseCase(
                 name = name,
                 items = _uiState.value.placedItems.map { it.placedItem },
+                existingRoomId = _uiState.value.currentRoomDesignId,
             )
             _uiState.update {
                 it.copy(
@@ -482,6 +483,10 @@ class ArViewModel @Inject constructor(
                 )
             }
         }
+    }
+
+    fun onSaveSuccessHandled() {
+        _uiState.update { it.copy(saveSuccess = false) }
     }
     
     fun exportInventoryCsv(): String {

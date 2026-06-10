@@ -79,8 +79,14 @@ fun ArScreen(
     var activeScaleText by remember { mutableStateOf<String?>(null) }
     var activeRotationText by remember { mutableStateOf<String?>(null) }
 
+    LaunchedEffect(uiState.saveSuccess) {
+        if (uiState.saveSuccess) {
+            android.widget.Toast.makeText(context, "Room Saved Successfully", android.widget.Toast.LENGTH_SHORT).show()
+            viewModel.onSaveSuccessHandled()
+        }
+    }
 
-    // Map UI State items to ModelNodes
+    // Initialize AR Engine and Loaders to ModelNodes
     LaunchedEffect(uiState.placedItems, uiState.selectedItemIds, uiState.lockedItemIds, uiState.hiddenItemIds) {
         val currentIds = uiState.placedItems.map { it.placedItem.id }.toSet()
         val existingNodes = childNodes.mapNotNull { it.name }.toSet()
