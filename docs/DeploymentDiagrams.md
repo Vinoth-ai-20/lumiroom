@@ -13,31 +13,23 @@
 Maps the physical hardware and software execution environments.
 
 ```mermaid
-deploymentDiagram
-    node "User Mobile Device" <<Android Smartphone>> {
-        node "Android OS" {
-            component "Lumiroom APK" {
-                component "Compose UI"
-                component "SceneView / ARCore"
-                component "Room DB"
-            }
-        }
-        device "Microphone"
-        device "ToF / LiDAR Camera"
-    }
-
-    node "Google Cloud Platform" <<PaaS>> {
-        node "Firebase" {
-            component "Firestore"
-            component "Cloud Storage"
-            component "Firebase Auth"
-        }
-        node "Vertex AI Platform" {
-            component "Gemini/Vertex Models"
+C4Deployment
+    title Deployment Architecture for Lumiroom
+    
+    Deployment_Node(mob, "User Mobile Device", "Android Smartphone") {
+        Deployment_Node(os, "Android OS", "Android 10+") {
+            Container(app, "Lumiroom APK", "Kotlin", "Provides AR UI and Logic")
+            ContainerDb(db, "Room DB", "SQLite", "Local Caching")
         }
     }
     
-    "User Mobile Device" -- "HTTPS / wss" --> "Google Cloud Platform"
+    Deployment_Node(gcp, "Google Cloud Platform", "PaaS") {
+        Deployment_Node(fb, "Firebase", "Backend-as-a-Service") {
+            Container(fs, "Firestore", "NoSQL", "Cloud Sync")
+        }
+    }
+    
+    Rel(app, fs, "Reads/Writes via wss/HTTPS")
 ```
 
 ## 2. CI/CD Deployment Pipeline

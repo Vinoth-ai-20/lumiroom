@@ -17,16 +17,16 @@ gantt
     title Lumiroom Development Roadmap
     dateFormat  YYYY-MM-DD
     section Foundation
-    Architecture & Setup      :done,    des1, 2025-10-01, 14d
-    Database & Sync Engine    :done,    des2, 2025-10-15, 21d
+    Architecture & Setup      :done,    des1, 2026-04-01, 14d
+    Database & Sync Engine    :done,    des2, 2026-04-15, 21d
     section Core Features
-    AR Placement Engine       :active,  core1, 2025-11-05, 30d
-    Voice Command System      :         core2, 2025-12-05, 20d
+    AR Placement Engine       :done,    core1, 2026-05-06, 20d
+    Voice Command System      :active,  core2, 2026-05-26, 20d
     section AI Integration
-    Vertex AI Room Health     :         ai1, 2026-01-01, 25d
+    Vertex AI Room Health     :         ai1, 2026-06-15, 25d
     section Polish
-    Asset Pipeline Automation :         pol1, 2026-01-26, 14d
-    QA & Beta Release         :         pol2, 2026-02-10, 20d
+    Asset Pipeline Automation :         pol1, 2026-07-10, 14d
+    QA & Beta Release         :         pol2, 2026-07-24, 20d
 ```
 
 ## 2. Work Breakdown Structure (WBS)

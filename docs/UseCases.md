@@ -19,17 +19,17 @@
 ## 2. Global Use Case Diagram
 
 ```mermaid
-usecaseDiagram
-    actor User as User
-    actor AI as Vertex AI Assistant
-    actor FB as Firebase Cloud
+flowchart LR
+    User((User))
+    AI((Vertex AI Assistant))
+    FB((Firebase Cloud))
     
-    package Lumiroom {
-        usecase "Place Furniture" as UC1
-        usecase "Use Voice Commands" as UC2
-        usecase "Sync Room Design" as UC3
-        usecase "Request AI Analysis" as UC4
-    }
+    subgraph Lumiroom
+        UC1([Place Furniture])
+        UC2([Use Voice Commands])
+        UC3([Sync Room Design])
+        UC4([Request AI Analysis])
+    end
     
     User --> UC1
     User --> UC2

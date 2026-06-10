@@ -14,17 +14,16 @@ High-quality 3D assets are central to the Lumiroom AR experience. The Asset Pipe
 ## 2. Asset Pipeline Workflow
 
 ```mermaid
-activityDiagram
-    start
-    :Designer creates FBX/OBJ in Blender;
-    :Export to glTF;
-    :Texture Compression (KTX2 / Basis Universal);
-    :Mesh Decimation (Draco Compression);
-    :Export as binary GLB;
-    :Generate 512x512 WebP Thumbnail;
-    :Upload to Firebase Storage;
-    :Update Firestore Metadata (Name, Bounds, Category);
-    stop
+flowchart TD
+    A([Start]) --> B[Designer creates FBX/OBJ in Blender]
+    B --> C[Export to glTF]
+    C --> D[Texture Compression: KTX2 / Basis Universal]
+    D --> E[Mesh Decimation: Draco Compression]
+    E --> F[Export as binary GLB]
+    F --> G[Generate 512x512 WebP Thumbnail]
+    G --> H[Upload to Firebase Storage]
+    H --> I[Update Firestore Metadata: Name, Bounds, Category]
+    I --> J([Stop])
 ```
 
 ## 3. Optimization Strategy

@@ -12,48 +12,50 @@
 Details the internal logic of the fuzzy-matching NLP parser.
 
 ```mermaid
-activityDiagram
-    start
-    :Receive Audio Transcript;
-    :Lowercase & Sanitize text;
+flowchart TD
+    A([Start]) --> B[Receive Audio Transcript]
+    B --> C[Lowercase & Sanitize text]
     
-    if (Contains "place" or "add") then (yes)
-        :Extract Noun Phrase (e.g. "modern sofa");
-        :Query Local Catalog;
-        if (Item Found?) then (yes)
-            :Emit PLACE Intent;
-        else (no)
-            :Emit ERROR: "Item not found";
-        endif
-    else if (Contains "rotate") then (yes)
-        :Extract Degrees (e.g. "90");
-        :Emit ROTATE Intent;
-    else if (Contains "delete" or "remove") then (yes)
-        :Emit DELETE Intent;
-    else (Unknown)
-        :Emit ERROR: "Unrecognized command";
-    endif
-    stop
+    C --> D{Contains 'place' or 'add'?}
+    D -- yes --> E[Extract Noun Phrase]
+    E --> F[Query Local Catalog]
+    F --> G{Item Found?}
+    G -- yes --> H[Emit PLACE Intent]
+    G -- no --> I[Emit ERROR: Item not found]
+    
+    D -- no --> J{Contains 'rotate'?}
+    J -- yes --> K[Extract Degrees]
+    K --> L[Emit ROTATE Intent]
+    
+    J -- no --> M{Contains 'delete' or 'remove'?}
+    M -- yes --> N[Emit DELETE Intent]
+    
+    M -- no --> O[Emit ERROR: Unrecognized command]
+    
+    H --> Z([Stop])
+    I --> Z
+    L --> Z
+    N --> Z
+    O --> Z
 ```
 
 ## 2. FMP Batch Processing Activity
 Details the workflow of the Python automation script used by developers.
 
 ```mermaid
-activityDiagram
-    start
-    :Scan /raw_fmp_files directory;
-    while (More FBX files?) is (yes)
-        :Load into Blender (bpy);
-        :Reset Origin to Bottom-Center;
-        :Apply Transformations;
-        if (Polygons > 50,000?) then (yes)
-            :Apply Decimate Modifier;
-        else (no)
-        endif
-        :Export as GLB (Draco Compressed);
-        :Render 512x512 WebP Thumbnail;
-    endwhile (no)
-    :Upload batch to Firebase Storage;
-    stop
+flowchart TD
+    A([Start]) --> B[Scan /raw_fmp_files directory]
+    B --> C{More FBX files?}
+    C -- yes --> D[Load into Blender]
+    D --> E[Reset Origin to Bottom-Center]
+    E --> F[Apply Transformations]
+    F --> G{Polygons > 50,000?}
+    G -- yes --> H[Apply Decimate Modifier]
+    G -- no --> I[Export as GLB]
+    H --> I
+    I --> J[Render 512x512 WebP Thumbnail]
+    J --> C
+    
+    C -- no --> K[Upload batch to Firebase Storage]
+    K --> Z([Stop])
 ```
