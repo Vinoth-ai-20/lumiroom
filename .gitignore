@@ -1,0 +1,52 @@
+# Gradle
+.gradle/
+build/
+*/build/
+
+# Kotlin
+.kotlin/
+
+# Local
+local.properties
+
+# Android Studio
+.idea/
+*.iml
+captures/
+.externalNativeBuild/
+.cxx/
+
+# Logs
+*.log
+build_output.log
+build_err.log
+out.log
+
+# Heap dumps
+*.hprof
+
+# Build outputs
+*.apk
+*.aab
+
+# Signing
+*.jks
+*.keystore
+
+# OS
+.DS_Store
+Thumbs.db
+
+# VSCode
+.vscode/
+
+# Temp files
+*.tmp
+*.bak
+
+# Zip backups
+*-tmp.zip
+sceneview*.zip
+
+# Generated metadata
+output-metadata.json

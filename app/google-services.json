@@ -1,0 +1,47 @@
+{
+  "project_info": {
+    "project_number": "108844923426",
+    "project_id": "lumiroom",
+    "storage_bucket": "lumiroom.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:108844923426:android:2969254b8caf4473ae287b",
+        "android_client_info": {
+          "package_name": "com.lumiroom.app"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "108844923426-3nq1k9mls9b28hh5eis3efcigoc96c7r.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.lumiroom.app",
+            "certificate_hash": "2556f11c73e4728469057f5f076f3b62373a187a"
+          }
+        },
+        {
+          "client_id": "108844923426-1vm30ao4kvqph3vuvm28hqbg9bc2pnck.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAyNuhDHavLAocXCRLYjNyDQtU_cpwkHRM"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "108844923426-1vm30ao4kvqph3vuvm28hqbg9bc2pnck.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

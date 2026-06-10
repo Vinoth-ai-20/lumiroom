@@ -1,0 +1,130 @@
+package com.lumiroom.feature.catalog.presentation
+
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.grid.*
+import androidx.compose.foundation.lazy.items
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.*
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
+import androidx.hilt.navigation.compose.hiltViewModel
+import com.lumiroom.core.ui.components.FurnitureCard
+import com.lumiroom.core.ui.components.LoadingOverlay
+
+val CATEGORIES = listOf("Bathroom", "Bed", "Chair", "Closet", "Cushion", "Drawer", "Kitchen", "Sofa", "Table")
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun CatalogScreen(
+    onNavigateToDetail: (String) -> Unit,
+    onNavigateToAr: () -> Unit,
+    onNavigateToSaved: () -> Unit,
+    onNavigateToAi: () -> Unit,
+    onNavigateToSettings: () -> Unit,
+    viewModel: CatalogViewModel = hiltViewModel(),
+) {
+    val uiState by viewModel.uiState.collectAsState()
+    val furnitureList by viewModel.furniture.collectAsState()
+
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { Text("Lumiroom", style = MaterialTheme.typography.titleLarge) },
+                actions = {
+                    IconButton(onClick = onNavigateToSettings) {
+                        Icon(Icons.Default.Settings, contentDescription = "Settings")
+                    }
+                },
+            )
+        },
+        bottomBar = {
+            NavigationBar {
+                NavigationBarItem(
+                    selected = true,
+                    onClick = {},
+                    icon = { Icon(Icons.Default.Home, contentDescription = "Catalog") },
+                    label = { Text("Catalog") },
+                )
+                NavigationBarItem(
+                    selected = false,
+                    onClick = onNavigateToAr,
+                    icon = { Icon(Icons.Default.CameraAlt, contentDescription = "AR") },
+                    label = { Text("AR View") },
+                )
+                NavigationBarItem(
+                    selected = false,
+                    onClick = onNavigateToSaved,
+                    icon = { Icon(Icons.Default.Bookmark, contentDescription = "Saved") },
+                    label = { Text("Saved") },
+                )
+                NavigationBarItem(
+                    selected = false,
+                    onClick = onNavigateToAi,
+                    icon = { Icon(Icons.Default.AutoAwesome, contentDescription = "AI") },
+                    label = { Text("AI Design") },
+                )
+            }
+        },
+    ) { paddingValues ->
+        Box(modifier = Modifier.padding(paddingValues)) {
+            if (uiState.isLoading) {
+                LoadingOverlay()
+            } else {
+                Column {
+                    // Search Bar
+                    OutlinedTextField(
+                        value = uiState.searchQuery,
+                        onValueChange = { viewModel.onSearchQueryChanged(it) },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp, vertical = 8.dp),
+                        placeholder = { Text("Search furniture...") },
+                        leadingIcon = { Icon(Icons.Default.Search, contentDescription = "Search") },
+                        singleLine = true,
+                        shape = MaterialTheme.shapes.medium
+                    )
+
+                    // Category Filters
+                    LazyRow(
+                        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        items(CATEGORIES) { category ->
+                            FilterChip(
+                                selected = uiState.selectedCategory == category,
+                                onClick = { viewModel.onCategorySelected(category) },
+                                label = { Text(category) }
+                            )
+                        }
+                    }
+
+                    // Catalog Grid
+                    LazyVerticalGrid(
+                        columns = GridCells.Fixed(2),
+                        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                        verticalArrangement = Arrangement.spacedBy(12.dp),
+                        modifier = Modifier.fillMaxSize()
+                    ) {
+                        items(furnitureList.size) { index ->
+                            val item = furnitureList[index]
+                            FurnitureCard(
+                                name = item.name,
+                                brand = item.category, // Using category as brand equivalent for now
+                                priceUsd = item.priceEstimate,
+                                thumbnailUrl = item.thumbnailPath ?: "",
+                                isFavorite = item.isFavorite,
+                                isDownloaded = item.isDownloaded,
+                                onClick = { onNavigateToDetail(item.id) },
+                                onFavoriteToggle = { viewModel.toggleFavorite(item.id) },
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
