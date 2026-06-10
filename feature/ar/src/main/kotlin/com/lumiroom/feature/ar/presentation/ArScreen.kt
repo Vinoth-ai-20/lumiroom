@@ -127,6 +127,10 @@ fun ArScreen(
                             position = Position(placedItem.placedItem.posX, placedItem.placedItem.posY, placedItem.placedItem.posZ)
                         }
                     }
+                    
+                    baseNode.isPositionEditable = false
+                    baseNode.isRotationEditable = false
+                    baseNode.isScaleEditable = false
 
                     val transformNode = io.github.sceneview.node.Node(engine = engine).apply {
                         name = "transform_$id"
@@ -136,114 +140,13 @@ fun ArScreen(
                             placedItem.placedItem.rotZ, placedItem.placedItem.rotW
                         )
                         transformNodesMap[id] = this
+                        
+                        isPositionEditable = false
+                        isRotationEditable = false
+                        isScaleEditable = false
                     }
 
                     val modelNode = object : ModelNode(modelInstance = modelInstance) {
-                        override fun onMoveBegin(detector: io.github.sceneview.gesture.MoveGestureDetector, e: android.view.MotionEvent): Boolean {
-                            if (uiState.lockedItemIds.contains(id)) return false
-                            
-                            // Unconditionally call super to preserve SceneView gesture lifecycle tracking
-                            super.onMoveBegin(detector, e)
-                            
-                            lastTouchX = e.x
-                            lastTouchY = e.y
-                            // Detach anchor to allow free movement during drag
-                            if (uiState.interactionMode == InteractionMode.MOVE) {
-                                val anchorNode = baseNode as? AnchorNode
-                                anchorNode?.anchor?.detach()
-                            }
-                            return true
-                        }
-
-                        override fun onMove(detector: io.github.sceneview.gesture.MoveGestureDetector, e: android.view.MotionEvent): Boolean {
-                            if (uiState.lockedItemIds.contains(id)) return false
-                            if (!uiState.selectedItemIds.contains(id)) return false
-                            
-                            if (uiState.interactionMode == InteractionMode.ROTATE) {
-                                val dx = e.x - lastTouchX
-                                lastTouchX = e.x
-                                lastTouchY = e.y
-
-                                // Rotate only around Y-axis for AR objects
-                                val rotY = dev.romainguy.kotlin.math.Quaternion.fromAxisAngle(dev.romainguy.kotlin.math.Float3(0f, 1f, 0f), dx * 0.5f)
-                                transformNode.quaternion = transformNode.quaternion * rotY
-                                
-                                val euler = dev.romainguy.kotlin.math.eulerAngles(transformNode.quaternion)
-                                val degrees = Math.toDegrees(euler.y.toDouble()).toInt()
-                                val normalizedDegrees = ((degrees % 360) + 360) % 360
-                                activeRotationText = "$normalizedDegrees°"
-                                
-                                return true
-                            }
-                            
-                            if (uiState.interactionMode != InteractionMode.MOVE) {
-                                return false
-                            }
-
-                            // We do NOT call super.onMove here because we are explicitly taking over
-                            // translation logic via raycasting to prevent SceneView's internal double-drag
-
-                            val hitResult = currentFrame?.hitTest(e.x, e.y)?.firstOrNull { hit ->
-                                val trackable = hit.trackable
-                                trackable is Plane && trackable.isPoseInPolygon(hit.hitPose)
-                            }
-                            if (hitResult != null) {
-                                val pose = hitResult.hitPose
-                                baseNode.position = Position(pose.tx(), pose.ty(), pose.tz())
-                            }
-                            return true
-                        }
-
-                        override fun onMoveEnd(detector: io.github.sceneview.gesture.MoveGestureDetector, e: android.view.MotionEvent) {
-                            // Unconditionally call super to preserve SceneView gesture lifecycle
-                            super.onMoveEnd(detector, e)
-                            
-                            if (uiState.interactionMode == InteractionMode.MOVE) {
-                                val hitResult = currentFrame?.hitTest(e.x, e.y)?.firstOrNull { hit ->
-                                    val trackable = hit.trackable
-                                    trackable is Plane && trackable.isPoseInPolygon(hit.hitPose)
-                                }
-                                val anchorNode = baseNode as? AnchorNode
-                                if (hitResult != null) {
-                                    val identityPose = com.google.ar.core.Pose(
-                                        hitResult.hitPose.translation,
-                                        floatArrayOf(0f, 0f, 0f, 1f)
-                                    )
-                                    val newAnchor = hitResult.trackable.createAnchor(identityPose)
-                                    if (anchorNode != null) {
-                                        anchorNode.anchor?.detach()
-                                        anchorNode.anchor = newAnchor
-                                    }
-                                    
-                                    viewModel.onItemTransformed(
-                                        itemId = id,
-                                        posX = baseNode.worldPosition.x,
-                                        posY = baseNode.worldPosition.y,
-                                        posZ = baseNode.worldPosition.z,
-                                        rotX = transformNode.quaternion.x, rotY = transformNode.quaternion.y, rotZ = transformNode.quaternion.z, rotW = transformNode.quaternion.w,
-                                        scaleX = transformNode.scale.x, scaleY = transformNode.scale.y, scaleZ = transformNode.scale.z,
-                                        matrixJson = ""
-                                    )
-                                }
-                            }
-                            
-                            if (uiState.interactionMode == InteractionMode.ROTATE) {
-                                activeRotationText = null
-                                viewModel.onItemTransformed(
-                                    itemId = id,
-                                    posX = baseNode.worldPosition.x,
-                                    posY = baseNode.worldPosition.y,
-                                    posZ = baseNode.worldPosition.z,
-                                    rotX = transformNode.quaternion.x, rotY = transformNode.quaternion.y, rotZ = transformNode.quaternion.z, rotW = transformNode.quaternion.w,
-                                    scaleX = transformNode.scale.x, scaleY = transformNode.scale.y, scaleZ = transformNode.scale.z,
-                                    matrixJson = ""
-                                )
-                            }
-                        }
-
-                        override fun onRotate(detector: io.github.sceneview.gesture.RotateGestureDetector, e: android.view.MotionEvent): Boolean {
-                            return false // Rotation handled by onMove 1-finger swipe
-                        }
                     }.apply {
                         name = id
                         val boundingBox = modelInstance.asset?.boundingBox
@@ -255,6 +158,10 @@ fun ArScreen(
                         } else {
                             centerOrigin(Position(0f, -1f, 0f)) // -1f = bottom alignment
                         }
+                        
+                        isPositionEditable = false
+                        isRotationEditable = false
+                        isScaleEditable = false
                     }
                     
                     transformNode.addChildNode(modelNode)
@@ -361,6 +268,9 @@ fun ArScreen(
         VoiceHelpDialog(onDismiss = { viewModel.onVoiceHelpDismissed() })
     }
 
+    // Global state for continuous gesture tracking
+    val touchState = remember { object { var x = 0f; var y = 0f } }
+
     Box(modifier = Modifier.fillMaxSize()) {
         ARScene(
             modifier = Modifier.fillMaxSize(),
@@ -385,6 +295,127 @@ fun ArScreen(
                 viewModel.onSessionError(exception.message ?: "Unknown AR Session Error")
             },
             onGestureListener = object : io.github.sceneview.gesture.GestureDetector.SimpleOnGestureListener() {
+                
+                override fun onMoveBegin(detector: io.github.sceneview.gesture.MoveGestureDetector, e: android.view.MotionEvent, node: io.github.sceneview.node.Node?) {
+                    if (uiState.selectedItemIds.isEmpty()) return
+                    
+                    val selectedId = uiState.selectedItemIds.first()
+                    if (uiState.lockedItemIds.contains(selectedId)) return
+                    
+                    touchState.x = e.x
+                    touchState.y = e.y
+                    
+                    if (uiState.interactionMode == InteractionMode.MOVE) {
+                        return
+                    }
+                    if (uiState.interactionMode == InteractionMode.ROTATE) {
+                        return
+                    }
+                    
+                    return
+                }
+
+                override fun onMove(detector: io.github.sceneview.gesture.MoveGestureDetector, e: android.view.MotionEvent, node: io.github.sceneview.node.Node?) {
+                    if (uiState.selectedItemIds.isEmpty()) return
+                    val selectedId = uiState.selectedItemIds.first()
+                    if (uiState.lockedItemIds.contains(selectedId)) return
+                    
+                    if (uiState.interactionMode == InteractionMode.ROTATE) {
+                        val dx = e.x - touchState.x
+                        touchState.x = e.x
+                        touchState.y = e.y
+
+                        val transformNode = transformNodesMap[selectedId] ?: return
+                        val rotY = dev.romainguy.kotlin.math.Quaternion.fromAxisAngle(dev.romainguy.kotlin.math.Float3(0f, 1f, 0f), dx * 0.5f)
+                        transformNode.quaternion = transformNode.quaternion * rotY
+                        
+                        val euler = dev.romainguy.kotlin.math.eulerAngles(transformNode.quaternion)
+                        val degrees = Math.toDegrees(euler.y.toDouble()).toInt()
+                        val normalizedDegrees = ((degrees % 360) + 360) % 360
+                        activeRotationText = "$normalizedDegrees°"
+                        return
+                    }
+                    
+                    if (uiState.interactionMode == InteractionMode.MOVE) {
+                        val baseNode = childNodes.find { it.name == selectedId } ?: return
+                        val hitResult = currentFrame?.hitTest(e.x, e.y)?.firstOrNull { hit ->
+                            val trackable = hit.trackable
+                            trackable is Plane && trackable.isPoseInPolygon(hit.hitPose)
+                        }
+                        val anchorNode = baseNode as? AnchorNode
+                        if (hitResult != null) {
+                            val identityPose = com.google.ar.core.Pose(
+                                hitResult.hitPose.translation,
+                                floatArrayOf(0f, 0f, 0f, 1f)
+                            )
+                            val newAnchor = hitResult.trackable.createAnchor(identityPose)
+                            if (anchorNode != null) {
+                                anchorNode.anchor?.detach()
+                                anchorNode.anchor = newAnchor
+                            } else {
+                                val pose = hitResult.hitPose
+                                baseNode.position = Position(pose.tx(), pose.ty(), pose.tz())
+                            }
+                        }
+                        return
+                    }
+                    
+                    return
+                }
+
+                override fun onMoveEnd(detector: io.github.sceneview.gesture.MoveGestureDetector, e: android.view.MotionEvent, node: io.github.sceneview.node.Node?) {
+                    super.onMoveEnd(detector, e, node)
+                    if (uiState.selectedItemIds.isEmpty()) return
+                    val selectedId = uiState.selectedItemIds.first()
+                    
+                    if (uiState.interactionMode == InteractionMode.MOVE) {
+                        val baseNode = childNodes.find { it.name == selectedId } ?: return
+                        val transformNode = transformNodesMap[selectedId] ?: return
+                        
+                        val hitResult = currentFrame?.hitTest(e.x, e.y)?.firstOrNull { hit ->
+                            val trackable = hit.trackable
+                            trackable is Plane && trackable.isPoseInPolygon(hit.hitPose)
+                        }
+                        val anchorNode = baseNode as? AnchorNode
+                        if (hitResult != null) {
+                            val identityPose = com.google.ar.core.Pose(
+                                hitResult.hitPose.translation,
+                                floatArrayOf(0f, 0f, 0f, 1f)
+                            )
+                            val newAnchor = hitResult.trackable.createAnchor(identityPose)
+                            if (anchorNode != null) {
+                                anchorNode.anchor?.detach()
+                                anchorNode.anchor = newAnchor
+                            }
+                            
+                            viewModel.onItemTransformed(
+                                itemId = selectedId,
+                                posX = baseNode.worldPosition.x,
+                                posY = baseNode.worldPosition.y,
+                                posZ = baseNode.worldPosition.z,
+                                rotX = transformNode.quaternion.x, rotY = transformNode.quaternion.y, rotZ = transformNode.quaternion.z, rotW = transformNode.quaternion.w,
+                                scaleX = transformNode.scale.x, scaleY = transformNode.scale.y, scaleZ = transformNode.scale.z,
+                                matrixJson = ""
+                            )
+                        }
+                    }
+                    
+                    if (uiState.interactionMode == InteractionMode.ROTATE) {
+                        activeRotationText = null
+                        val baseNode = childNodes.find { it.name == selectedId } ?: return
+                        val transformNode = transformNodesMap[selectedId] ?: return
+                        viewModel.onItemTransformed(
+                            itemId = selectedId,
+                            posX = baseNode.worldPosition.x,
+                            posY = baseNode.worldPosition.y,
+                            posZ = baseNode.worldPosition.z,
+                            rotX = transformNode.quaternion.x, rotY = transformNode.quaternion.y, rotZ = transformNode.quaternion.z, rotW = transformNode.quaternion.w,
+                            scaleX = transformNode.scale.x, scaleY = transformNode.scale.y, scaleZ = transformNode.scale.z,
+                            matrixJson = ""
+                        )
+                    }
+                }
+
                 override fun onScale(detector: io.github.sceneview.gesture.ScaleGestureDetector, e: android.view.MotionEvent, node: io.github.sceneview.node.Node?) {
                     if (uiState.interactionMode != InteractionMode.SCALE || uiState.selectedItemIds.isEmpty()) return
                     val selectedId = uiState.selectedItemIds.first()
