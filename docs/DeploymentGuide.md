@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="../Lumiroom-logo-alpha.png" width="120"/>
+</p>
+
 # Deployment and Build Guide
 
 **Project:** Lumiroom: AI-Assisted Mobile AR Furniture Visualization and Interior Planning System  
@@ -83,3 +87,4 @@ Lumiroom follows **Semantic Versioning** (`MAJOR.MINOR.PATCH`).
 - Upload the signed `.aab` file to the Google Play Console.
 - Rollouts should begin at 10% adoption to monitor crash analytics via Firebase Crashlytics.
 - **Rollback Strategy**: In the event of a catastrophic production crash, halt the rollout in the Play Console. Upload the previous `.aab` with an incremented `versionCode`.
+

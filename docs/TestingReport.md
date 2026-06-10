@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="../Lumiroom-logo-alpha.png" width="120"/>
+</p>
+
 # QA and Testing Strategy Report
 
 **Project:** Lumiroom: AI-Assisted Mobile AR Furniture Visualization and Interior Planning System  
@@ -43,3 +47,4 @@ The `CommandParser` is tested extensively via parameterized unit tests:
 Bugs are tracked using GitHub Issues. Critical failure scenarios include:
 1. **ARCore Unsupported**: Handled gracefully by redirecting the user to the 2D planning mode.
 2. **Network Offline**: Handled via Room DB caching; all AR interactions function normally, cloud sync is queued.
+

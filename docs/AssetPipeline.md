@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="../Lumiroom-logo-alpha.png" width="120"/>
+</p>
+
 # Asset Pipeline Documentation
 
 **Project:** Lumiroom: AI-Assisted Mobile AR Furniture Visualization and Interior Planning System  
@@ -56,3 +60,4 @@ stateDiagram-v2
 
 ## 5. Naming Conventions
 All assets must follow the `Category_Brand_ModelName.glb` structure (e.g., `Sofa_Ikea_Kivik.glb`).
+

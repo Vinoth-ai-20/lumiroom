@@ -1,10 +1,28 @@
-# Lumiroom
-> **AI-Assisted Mobile AR Furniture Visualization and Interior Planning System**
+<p align="center">
+  <img src="Lumiroom-logo-alpha.png" width="180"/>
+</p>
 
-[![License](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
-[![Kotlin](https://img.shields.io/badge/kotlin-2.0.0-blue.svg?logo=kotlin)](http://kotlinlang.org)
-[![Platform](https://img.shields.io/badge/Platform-Android-green.svg?logo=android)](https://www.android.com/)
-[![CI](https://github.com/Vinoth-ai-20/lumiroom/actions/workflows/ci.yml/badge.svg)](https://github.com/Vinoth-ai-20/lumiroom/actions)
+<h1 align="center">
+Lumiroom
+</h1>
+
+<p align="center">
+AI-Assisted Mobile AR Furniture Visualization and Interior Planning System
+</p>
+
+<p align="center">
+Visualize Furniture Before It Arrives
+</p>
+
+<p align="center">
+  <img src="https://img.shields.io/badge/kotlin-2.0.0-blue.svg?logo=kotlin" alt="Kotlin"/>
+  <img src="https://img.shields.io/badge/Jetpack_Compose-Android-green.svg?logo=android" alt="Jetpack Compose"/>
+  <img src="https://img.shields.io/badge/ARCore-Supported-orange.svg?logo=google" alt="ARCore"/>
+  <img src="https://img.shields.io/badge/SceneView-3D-blue.svg" alt="SceneView"/>
+  <img src="https://img.shields.io/badge/Firebase-Backend-yellow.svg?logo=firebase" alt="Firebase"/>
+  <img src="https://img.shields.io/badge/Material_3-UI-purple.svg?logo=materialdesign" alt="Material 3"/>
+  <a href="https://opensource.org/licenses/MIT"><img src="https://img.shields.io/badge/License-MIT-blue.svg" alt="License"/></a>
+</p>
 
 Lumiroom is an enterprise-grade Android application that redefines how users plan and visualize interior spaces. By combining **ARCore** spatial tracking with an offline-capable **Voice Command Engine** and **AI-powered room recommendations**, Lumiroom provides a seamless, hands-free interior design experience.
 

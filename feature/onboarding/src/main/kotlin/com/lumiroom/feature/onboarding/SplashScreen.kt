@@ -57,11 +57,12 @@ fun SplashScreen(
             ),
         contentAlignment = Alignment.Center,
     ) {
-        // TODO: Replace with LottieAnimation once lottie asset is added
-        // LottieAnimation(
-        //     composition = rememberLottieComposition(LottieCompositionSpec.RawRes(R.raw.splash_logo)),
-        //     iterations = 1,
-        // )
+        androidx.compose.foundation.Image(
+            painter = androidx.compose.ui.res.painterResource(id = com.lumiroom.core.ui.R.drawable.lumiroom_logo),
+            contentDescription = "Lumiroom Logo",
+            modifier = Modifier.fillMaxSize(0.6f),
+            contentScale = androidx.compose.ui.layout.ContentScale.Fit
+        )
     }
 }
 

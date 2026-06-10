@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="../Lumiroom-logo-alpha.png" width="120"/>
+</p>
+
 # System Architecture
 
 **Project:** Lumiroom: AI-Assisted Mobile AR Furniture Visualization and Interior Planning System  
@@ -94,3 +98,4 @@ sequenceDiagram
 ## 6. Related Documents
 - View comprehensive architecture diagrams in [C4 Architecture](C4Architecture.md).
 - View precise state handling in [State Machine Diagrams](StateMachineDiagrams.md).
+

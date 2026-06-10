@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="../Lumiroom-logo-alpha.png" width="120"/>
+</p>
+
 # Software Requirements Specification (SRS)
 
 **Project:** Lumiroom: AI-Assisted Mobile AR Furniture Visualization and Interior Planning System  
@@ -120,3 +124,4 @@ See [UseCases.md](UseCases.md) for full use case specifications and Actor diagra
 ## 7. Acceptance Criteria
 - 100% of P0 functional requirements pass automated CI instrumentation tests.
 - Zero memory leaks detected by LeakCanary during a 10-minute active AR session.
+

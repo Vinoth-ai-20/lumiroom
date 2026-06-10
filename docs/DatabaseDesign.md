@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="../Lumiroom-logo-alpha.png" width="120"/>
+</p>
+
 # Database Design
 
 **Project:** Lumiroom: AI-Assisted Mobile AR Furniture Visualization and Interior Planning System  
@@ -83,3 +87,4 @@ When altering schemas, the version number is incremented, and an explicit `Migra
 ## 7. Backup Strategy
 - **Local**: Android Auto Backup handles storing SQLite files in Google Drive.
 - **Cloud**: Firebase Firestore automated daily backups are enabled in the Google Cloud Console.
+

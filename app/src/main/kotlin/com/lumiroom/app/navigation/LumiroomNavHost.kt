@@ -174,11 +174,17 @@ fun LumiroomNavHost(
         composable(LumiroomRoutes.SETTINGS) {
             SettingsScreen(
                 onNavigateBack = { navController.popBackStack() },
+                onNavigateToAbout = { navController.navigate(LumiroomRoutes.ABOUT) },
                 onSignOut = {
                     navController.navigate(LumiroomRoutes.SIGN_IN) {
                         popUpTo(0) { inclusive = true }
                     }
                 },
+            )
+        // ── About ──────────────────────────────────────────────────────────
+        composable(LumiroomRoutes.ABOUT) {
+            com.lumiroom.feature.settings.presentation.AboutScreen(
+                onNavigateBack = { navController.popBackStack() }
             )
         }
     }
@@ -200,6 +206,7 @@ object LumiroomRoutes {
     const val SAVED_ROOMS       = "saved_rooms"
     const val AI_ASSISTANT      = "ai_assistant"
     const val SETTINGS          = "settings"
+    const val ABOUT             = "about"
 
     fun furnitureDetail(id: String)  = "catalog/detail/$id"
     fun arWithFurniture(id: String)  = "ar?furnitureId=$id"

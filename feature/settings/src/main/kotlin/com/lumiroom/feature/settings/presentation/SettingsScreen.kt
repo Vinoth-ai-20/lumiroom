@@ -15,6 +15,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 @Composable
 fun SettingsScreen(
     onNavigateBack: () -> Unit,
+    onNavigateToAbout: () -> Unit,
     onSignOut: () -> Unit,
     viewModel: SettingsViewModel = hiltViewModel(),
 ) {
@@ -23,7 +24,16 @@ fun SettingsScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Settings") },
+                title = { 
+                    Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+                        androidx.compose.foundation.Image(
+                            painter = androidx.compose.ui.res.painterResource(id = com.lumiroom.core.ui.R.drawable.lumiroom_logo),
+                            contentDescription = null,
+                            modifier = Modifier.size(24.dp).padding(end = 8.dp)
+                        )
+                        Text("Settings")
+                    }
+                },
                 navigationIcon = {
                     IconButton(onClick = onNavigateBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back")
@@ -102,6 +112,10 @@ fun SettingsScreen(
             // Account
             Text("Account", style = MaterialTheme.typography.titleSmall,
                 color = MaterialTheme.colorScheme.primary)
+            ListItem(
+                headlineContent = { Text("About Lumiroom") },
+                modifier = Modifier.clickable { onNavigateToAbout() },
+            )
             ListItem(
                 headlineContent = { Text("Sign Out") },
                 modifier = Modifier.clickable { onSignOut() },
