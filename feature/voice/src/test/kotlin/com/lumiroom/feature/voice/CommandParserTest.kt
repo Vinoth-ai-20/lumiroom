@@ -37,8 +37,7 @@ class CommandParserTest {
 
     @Test
     fun testEditingCommands() {
-        assertEquals(VoiceCommand.Duplicate, parser.parse("duplicate selected"))
-        assertEquals(VoiceCommand.Duplicate, parser.parse("clone it"))
+
         
         assertEquals(VoiceCommand.DeleteSelected, parser.parse("delete selected"))
         assertEquals(VoiceCommand.Remove("sofa"), parser.parse("remove the sofa"))

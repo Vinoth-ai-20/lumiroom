@@ -9,12 +9,12 @@
 ---
 
 ## 1. AR Entity Lifecycle
+
 Describes the state of a 3D furniture model inside the AR Scene.
 
 ```mermaid
 stateDiagram-v2
-    [*] --> GhostPreview : User selects from Catalog
-    GhostPreview --> Placed : User taps screen (Hit Test success)
+    [*] --> Placed : User taps screen with selected catalog item
     
     Placed --> Selected : User taps object
     Selected --> Moving : User drags object
@@ -31,6 +31,7 @@ stateDiagram-v2
 ```
 
 ## 2. Voice Command State Machine
+
 Handles the state progression of the SpeechRecognizer.
 
 ```mermaid

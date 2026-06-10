@@ -194,10 +194,10 @@ class ArViewModel @Inject constructor(
     fun onItemSelected(itemId: String?, multiSelect: Boolean = false) {
         if (itemId == null) {
             selectionManager.clearSelection()
-            _uiState.update { it.copy(interactionMode = InteractionMode.IDLE, isPasteMode = false) }
+            _uiState.update { it.copy(interactionMode = InteractionMode.IDLE) }
         } else {
             selectionManager.selectItem(itemId, multiSelect)
-            _uiState.update { it.copy(interactionMode = InteractionMode.IDLE, isPasteMode = false) }
+            _uiState.update { it.copy(interactionMode = InteractionMode.IDLE) }
         }
     }
     
@@ -238,18 +238,7 @@ class ArViewModel @Inject constructor(
         }
     }
     
-    fun onCopySelected() {
-        val itemIds = _uiState.value.selectedItemIds
-        if (itemIds.isEmpty()) return
-        
-        _uiState.update { it.copy(copiedFurnitureId = itemIds.first()) }
-    }
 
-    fun onPaste() {
-        if (_uiState.value.copiedFurnitureId == null) return
-        _uiState.update { it.copy(isPasteMode = true, interactionMode = InteractionMode.IDLE) }
-    }
-    
     fun toggleMeasuring() {
         _uiState.update { it.copy(isMeasuring = !it.isMeasuring) }
     }
@@ -295,44 +284,6 @@ class ArViewModel @Inject constructor(
         }
     }
 
-    fun cancelPasteMode() {
-        _uiState.update { it.copy(isPasteMode = false) }
-    }
-    
-    fun onPastePlaneTapped(hitPosX: Float, hitPosY: Float, hitPosZ: Float, rotX: Float, rotY: Float, rotZ: Float, rotW: Float, newInstanceId: String) {
-        val copiedId = _uiState.value.copiedFurnitureId ?: return
-        
-        // Immediately exit paste mode to prevent double taps
-        _uiState.update { it.copy(isPasteMode = false) }
-        
-        viewModelScope.launch(ioDispatcher) {
-            val itemToClone = _uiState.value.placedItems.find { it.placedItem.id == copiedId } ?: return@launch
-            
-            val result = placeFurnitureUseCase(
-                instanceId = newInstanceId,
-                furnitureId = itemToClone.furniture.id,
-                roomDesignId = _uiState.value.currentRoomDesignId,
-                posX = hitPosX, posY = hitPosY, posZ = hitPosZ,
-                rotX = rotX, rotY = rotY, rotZ = rotZ, rotW = rotW,
-                scaleX = itemToClone.placedItem.scaleX,
-                scaleY = itemToClone.placedItem.scaleY,
-                scaleZ = itemToClone.placedItem.scaleZ
-            )
-            
-            if (result is LumiroomResult.Success) {
-                pushUndo(ArAction.Place(result.data))
-                _uiState.update { state ->
-                    val updatedItems = state.placedItems + result.data
-                    state.copy(
-                        placedItems = updatedItems
-                    )
-                }
-                selectionManager.clearSelection()
-            }
-            selectionManager.clearSelection()
-        }
-    }
-    
     fun togglePlaneVisualization() {
         _uiState.update { it.copy(showPlaneVisualization = !it.showPlaneVisualization) }
     }
@@ -646,9 +597,7 @@ class ArViewModel @Inject constructor(
                  viewModelScope.launch { _events.emit(ArViewEvent.ScaleSelectedItem(command.factor)) }
             }
             is VoiceCommand.Move -> {
-                // Needs engine support, skip for pure viewmodel
             }
-            is VoiceCommand.Duplicate -> onCopySelected()
             is VoiceCommand.DeleteSelected -> onRemoveSelectedItems()
             is VoiceCommand.SaveRoom -> onSaveRoom(_uiState.value.currentRoomName)
             is VoiceCommand.LoadRoom -> { /* Implementation for later navigation */ }

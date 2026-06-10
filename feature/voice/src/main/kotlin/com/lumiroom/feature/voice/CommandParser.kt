@@ -28,7 +28,6 @@ class CommandParser @Inject constructor() {
     private val movePattern = Regex("""move\s+(forward|backward|left|right)""")
 
     // Editing
-    private val duplicatePattern = Regex("""(?:duplicate|clone)\s+(?:selected|it)?""")
     private val deleteSelectedPattern = Regex("""(?:delete|remove)\s+(?:selected|it)""")
     private val removePattern = Regex("""(?:remove|delete|take away)\s+(?:the\s+)?(.+)""")
     private val replacePattern = Regex("""replace\s+(?:furniture|item|with\s+)?(.+)""")
@@ -93,7 +92,6 @@ class CommandParser @Inject constructor() {
         }
 
         // Editing
-        duplicatePattern.find(normalized)?.let { return VoiceCommand.Duplicate }
         deleteSelectedPattern.find(normalized)?.let { return VoiceCommand.DeleteSelected }
         replacePattern.find(normalized)?.let { match ->
             return VoiceCommand.Replace(match.groupValues[1].trim())
@@ -151,7 +149,6 @@ sealed class VoiceCommand {
     data class Scale(val factor: Float) : VoiceCommand()
     data class Move(val direction: String) : VoiceCommand()
 
-    object Duplicate : VoiceCommand()
     object DeleteSelected : VoiceCommand()
 
     object SaveRoom : VoiceCommand()

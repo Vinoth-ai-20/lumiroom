@@ -79,45 +79,6 @@ fun ArScreen(
     var activeScaleText by remember { mutableStateOf<String?>(null) }
     var activeRotationText by remember { mutableStateOf<String?>(null) }
 
-    // Ghost node for copy mode
-    var ghostModelInstance by remember { mutableStateOf<com.google.android.filament.gltfio.FilamentInstance?>(null) }
-    var ghostNode by remember { mutableStateOf<io.github.sceneview.node.ModelNode?>(null) }
-    var ghostActive by remember { mutableStateOf(false) }
-
-    LaunchedEffect(uiState.isPasteMode) {
-        if (uiState.isPasteMode) {
-            val copiedId = uiState.copiedFurnitureId
-            val itemToClone = uiState.placedItems.find { it.placedItem.id == copiedId }
-            if (itemToClone != null) {
-                val modelPath = "models/${itemToClone.furniture.modelPath.substringAfterLast("/")}"
-                try {
-                    val instance = modelLoader.loadModelInstance(modelPath)
-                    ghostModelInstance = instance
-                    if (instance != null) {
-                        ghostNode = io.github.sceneview.node.ModelNode(modelInstance = instance).apply {
-                            centerOrigin(Position(0f, 0f, 0f))
-                            scale = Scale(itemToClone.placedItem.scaleX, itemToClone.placedItem.scaleY, itemToClone.placedItem.scaleZ)
-                            quaternion = Quaternion(itemToClone.placedItem.rotX, itemToClone.placedItem.rotY, itemToClone.placedItem.rotZ, itemToClone.placedItem.rotW)
-                        }
-                        ghostActive = true
-                        ghostNode?.let { node ->
-                            if (!childNodes.contains(node)) {
-                                childNodes.add(node)
-                            }
-                        }
-                    }
-                } catch (e: Exception) {
-                    ghostActive = false
-                }
-            }
-        } else {
-            ghostActive = false
-            ghostNode?.let { childNodes.remove(it) }
-            ghostNode?.destroy()
-            ghostNode = null
-            ghostModelInstance = null
-        }
-    }
 
     // Map UI State items to ModelNodes
     LaunchedEffect(uiState.placedItems, uiState.selectedItemIds, uiState.lockedItemIds, uiState.hiddenItemIds) {
@@ -158,17 +119,13 @@ fun ArScreen(
                         }
                     }
 
-                    val pivotNode = io.github.sceneview.node.Node(engine = engine).apply {
-                        name = "pivot_$id"
+                    val transformNode = io.github.sceneview.node.Node(engine = engine).apply {
+                        name = "transform_$id"
                         this.scale = Scale(placedItem.placedItem.scaleX, placedItem.placedItem.scaleY, placedItem.placedItem.scaleZ)
                         this.quaternion = dev.romainguy.kotlin.math.Quaternion(
                             placedItem.placedItem.rotX, placedItem.placedItem.rotY,
                             placedItem.placedItem.rotZ, placedItem.placedItem.rotW
                         )
-                    }
-
-                    val floorAlignmentNode = io.github.sceneview.node.Node(engine = engine).apply {
-                        name = "floor_$id"
                     }
 
                     val modelNode = object : ModelNode(modelInstance = modelInstance) {
@@ -195,9 +152,9 @@ fun ArScreen(
 
                                 // Rotate only around Y-axis for AR objects
                                 val rotY = dev.romainguy.kotlin.math.Quaternion.fromAxisAngle(dev.romainguy.kotlin.math.Float3(0f, 1f, 0f), dx * 0.5f)
-                                pivotNode.quaternion = pivotNode.quaternion * rotY
+                                transformNode.quaternion = transformNode.quaternion * rotY
                                 
-                                val euler = dev.romainguy.kotlin.math.eulerAngles(pivotNode.quaternion)
+                                val euler = dev.romainguy.kotlin.math.eulerAngles(transformNode.quaternion)
                                 val degrees = Math.toDegrees(euler.y.toDouble()).toInt()
                                 activeRotationText = "$degrees°"
                                 
@@ -237,7 +194,7 @@ fun ArScreen(
                                         instanceId = id,
                                         furnitureId = placedItem.furniture.id,
                                         hitPosX = pose.tx(), hitPosY = pose.ty(), hitPosZ = pose.tz(),
-                                        rotX = pivotNode.quaternion.x, rotY = pivotNode.quaternion.y, rotZ = pivotNode.quaternion.z, rotW = pivotNode.quaternion.w
+                                        rotX = transformNode.quaternion.x, rotY = transformNode.quaternion.y, rotZ = transformNode.quaternion.z, rotW = transformNode.quaternion.w
                                     )
                                 }
                             }
@@ -249,8 +206,8 @@ fun ArScreen(
                                     posX = baseNode.worldPosition.x,
                                     posY = baseNode.worldPosition.y,
                                     posZ = baseNode.worldPosition.z,
-                                    rotX = pivotNode.quaternion.x, rotY = pivotNode.quaternion.y, rotZ = pivotNode.quaternion.z, rotW = pivotNode.quaternion.w,
-                                    scaleX = pivotNode.scale.x, scaleY = pivotNode.scale.y, scaleZ = pivotNode.scale.z,
+                                    rotX = transformNode.quaternion.x, rotY = transformNode.quaternion.y, rotZ = transformNode.quaternion.z, rotW = transformNode.quaternion.w,
+                                    scaleX = transformNode.scale.x, scaleY = transformNode.scale.y, scaleZ = transformNode.scale.z,
                                     matrixJson = ""
                                 )
                             }
@@ -265,10 +222,10 @@ fun ArScreen(
                             if (uiState.interactionMode != InteractionMode.SCALE || !uiState.selectedItemIds.contains(id)) return false
                             super.onScale(detector, e)
                             val factor = detector.scaleFactor
-                            val newScaleX = (pivotNode.scale.x * factor).coerceIn(0.1f, 5.0f)
-                            val newScaleY = (pivotNode.scale.y * factor).coerceIn(0.1f, 5.0f)
-                            val newScaleZ = (pivotNode.scale.z * factor).coerceIn(0.1f, 5.0f)
-                            pivotNode.scale = Scale(newScaleX, newScaleY, newScaleZ)
+                            val newScaleX = (transformNode.scale.x * factor).coerceIn(0.1f, 5.0f)
+                            val newScaleY = (transformNode.scale.y * factor).coerceIn(0.1f, 5.0f)
+                            val newScaleZ = (transformNode.scale.z * factor).coerceIn(0.1f, 5.0f)
+                            transformNode.scale = Scale(newScaleX, newScaleY, newScaleZ)
                             
                             val percentage = (newScaleX / placedItem.placedItem.initScaleX * 100).toInt()
                             activeScaleText = "$percentage%"
@@ -284,8 +241,8 @@ fun ArScreen(
                                 posX = baseNode.worldPosition.x,
                                 posY = baseNode.worldPosition.y,
                                 posZ = baseNode.worldPosition.z,
-                                rotX = pivotNode.quaternion.x, rotY = pivotNode.quaternion.y, rotZ = pivotNode.quaternion.z, rotW = pivotNode.quaternion.w,
-                                scaleX = pivotNode.scale.x, scaleY = pivotNode.scale.y, scaleZ = pivotNode.scale.z,
+                                rotX = transformNode.quaternion.x, rotY = transformNode.quaternion.y, rotZ = transformNode.quaternion.z, rotW = transformNode.quaternion.w,
+                                scaleX = transformNode.scale.x, scaleY = transformNode.scale.y, scaleZ = transformNode.scale.z,
                                 matrixJson = ""
                             )
                         }
@@ -295,18 +252,15 @@ fun ArScreen(
                         if (boundingBox != null) {
                             val center = boundingBox.center
                             val halfExtent = boundingBox.halfExtent
-                            // Position the floorAlignmentNode so the bottom of the object hits y=0
-                            floorAlignmentNode.position = Position(0f, halfExtent[1] - center[1], 0f)
-                            // Position the modelNode so the center is zeroed out in X and Z
-                            position = Position(-center[0], 0f, -center[2])
+                            // Center in X and Z, align bottom to Y=0
+                            position = Position(-center[0], halfExtent[1] - center[1], -center[2])
                         } else {
                             centerOrigin(Position(0f, -1f, 0f)) // -1f = bottom alignment
                         }
                     }
                     
-                    floorAlignmentNode.addChildNode(modelNode)
-                    pivotNode.addChildNode(floorAlignmentNode)
-                    baseNode.addChildNode(pivotNode)
+                    transformNode.addChildNode(modelNode)
+                    baseNode.addChildNode(transformNode)
                     baseNode.name = id // So it can be found for removal
                     childNodes.add(baseNode)
                     Log.d("ArPlacement", "Model attached to AR scene graph via ARPivotNode!")
@@ -319,17 +273,22 @@ fun ArScreen(
         // Update properties
         childNodes.forEach { baseNode ->
             val id = baseNode.name ?: return@forEach
-            val pivotNode = baseNode.childNodes.firstOrNull { it.name == "pivot_$id" }
-            val modelNode = pivotNode?.childNodes?.filterIsInstance<ModelNode>()?.firstOrNull() ?: baseNode.childNodes.filterIsInstance<ModelNode>().firstOrNull()
+            val transformNode = baseNode.childNodes.firstOrNull { it.name == "transform_$id" }
+            val modelNode = transformNode?.childNodes?.filterIsInstance<ModelNode>()?.firstOrNull() ?: baseNode.childNodes.filterIsInstance<ModelNode>().firstOrNull()
             val isSelected = uiState.selectedItemIds.contains(id)
             
-            if (pivotNode != null) {
+            if (transformNode != null) {
                 // Add or remove selection box
                 val selectionBoxName = "selection_box_$id"
-                val existingBox = pivotNode.childNodes.find { it.name == selectionBoxName }
+                val existingBox = transformNode.childNodes.find { it.name == selectionBoxName }
                 
                 if (isSelected && existingBox == null) {
-                    val boxSize = io.github.sceneview.math.Position(1.2f, 0.02f, 1.2f)
+                    val bb = modelNode?.modelInstance?.asset?.boundingBox
+                    val boxSize = if (bb != null) {
+                        io.github.sceneview.math.Position(bb.halfExtent[0] * 2.2f, 0.02f, bb.halfExtent[2] * 2.2f)
+                    } else {
+                        io.github.sceneview.math.Position(1.2f, 0.02f, 1.2f)
+                    }
                     val boxNode = io.github.sceneview.node.CubeNode(
                         engine = engine,
                         size = boxSize,
@@ -337,9 +296,9 @@ fun ArScreen(
                     ).apply {
                         name = selectionBoxName
                     }
-                    pivotNode.addChildNode(boxNode)
+                    transformNode.addChildNode(boxNode)
                 } else if (!isSelected && existingBox != null) {
-                    pivotNode.removeChildNode(existingBox)
+                    transformNode.removeChildNode(existingBox)
                     existingBox.destroy()
                 }
 
@@ -353,26 +312,26 @@ fun ArScreen(
                     val targetScale = io.github.sceneview.math.Scale(uiItem.scaleX, uiItem.scaleY, uiItem.scaleZ)
 
                     val dist = dev.romainguy.kotlin.math.length(baseNode.position - targetPos)
-                    val scaleDist = dev.romainguy.kotlin.math.length(pivotNode.scale - targetScale)
-                    val rotDist = kotlin.math.abs(dev.romainguy.kotlin.math.dot(pivotNode.quaternion, targetRot))
+                    val scaleDist = dev.romainguy.kotlin.math.length(transformNode.scale - targetScale)
+                    val rotDist = kotlin.math.abs(dev.romainguy.kotlin.math.dot(transformNode.quaternion, targetRot))
                     
                     if (dist > 0.005f || scaleDist > 0.005f || rotDist < 0.999f) {
                         coroutineScope.launch {
                             val startPos = baseNode.position
-                            val startRot = pivotNode.quaternion
-                            val startScale = pivotNode.scale
+                            val startRot = transformNode.quaternion
+                            val startScale = transformNode.scale
                             val steps = 25 // 400ms at ~60fps
                             for (i in 0..steps) {
                                 val t = i.toFloat() / steps
                                 val smoothT = t * t * (3f - 2f * t) // ease in out
                                 baseNode.position = dev.romainguy.kotlin.math.mix(startPos, targetPos, smoothT)
-                                pivotNode.quaternion = dev.romainguy.kotlin.math.slerp(startRot, targetRot, smoothT)
-                                pivotNode.scale = dev.romainguy.kotlin.math.mix(startScale, targetScale, smoothT)
+                                transformNode.quaternion = dev.romainguy.kotlin.math.slerp(startRot, targetRot, smoothT)
+                                transformNode.scale = dev.romainguy.kotlin.math.mix(startScale, targetScale, smoothT)
                                 kotlinx.coroutines.delay(16)
                             }
                             baseNode.position = targetPos
-                            pivotNode.quaternion = targetRot
-                            pivotNode.scale = targetScale
+                            transformNode.quaternion = targetRot
+                            transformNode.scale = targetScale
                         }
                     }
                 }
@@ -422,19 +381,7 @@ fun ArScreen(
                 if (uiState.sessionState == ArSessionState.Initializing) {
                     viewModel.onSessionScanning()
                 }
-                
-                if (uiState.isPasteMode && ghostNode != null) {
-                    val hitResultCenter = currentFrame?.hitTest(
-                        context.resources.displayMetrics.widthPixels / 2f,
-                        context.resources.displayMetrics.heightPixels / 2f
-                    )?.firstOrNull { hit ->
-                        hit.trackable is Plane
-                    }
-                    if (hitResultCenter != null) {
-                        val pose = hitResultCenter.hitPose
-                        ghostNode?.position = Position(pose.tx(), pose.ty(), pose.tz())
-                    }
-                }
+
             },
             onSessionFailed = { exception ->
                 viewModel.onSessionError(exception.message ?: "Unknown AR Session Error")
@@ -445,34 +392,7 @@ fun ArScreen(
                         viewModel.onItemSelected(node.name!!, multiSelect = false) // Add long press later for multi-select
                     } else {
                         viewModel.onItemSelected(null)
-                        if (uiState.isPasteMode) {
-                            val hitResult = currentFrame?.hitTest(e.x, e.y)?.firstOrNull { hit ->
-                                val trackable = hit.trackable
-                                trackable is Plane && trackable.isPoseInPolygon(hit.hitPose)
-                            } ?: currentFrame?.hitTest(
-                                context.resources.displayMetrics.widthPixels / 2f,
-                                context.resources.displayMetrics.heightPixels / 2f
-                            )?.firstOrNull { hit ->
-                                val trackable = hit.trackable
-                                trackable is Plane && trackable.isPoseInPolygon(hit.hitPose)
-                            }
-                            
-                            if (hitResult != null) {
-                                val pose = hitResult.hitPose
-                                val instanceId = java.util.UUID.randomUUID().toString()
-                                val anchor = hitResult.createAnchor()
-                                anchorCache[instanceId] = anchor
-                                
-                                viewModel.onPastePlaneTapped(
-                                    hitPosX = pose.tx(), hitPosY = pose.ty(), hitPosZ = pose.tz(),
-                                    rotX = ghostNode?.quaternion?.x ?: 0f,
-                                    rotY = ghostNode?.quaternion?.y ?: 0f,
-                                    rotZ = ghostNode?.quaternion?.z ?: 0f,
-                                    rotW = ghostNode?.quaternion?.w ?: 1f,
-                                    newInstanceId = instanceId
-                                )
-                            }
-                        } else if (pendingFurnitureId != null) {
+                        if (pendingFurnitureId != null) {
                             val hitResult = currentFrame?.hitTest(e.x, e.y)?.firstOrNull { hit ->
                                 val trackable = hit.trackable
                                 trackable is Plane && trackable.isPoseInPolygon(hit.hitPose)
@@ -579,10 +499,7 @@ fun ArScreen(
                 modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 180.dp), // Google AR style bottom panel
                 interactionMode = uiState.interactionMode,
                 isLocked = uiState.selectedItemIds.all { uiState.lockedItemIds.contains(it) },
-                canPaste = uiState.copiedFurnitureId != null,
                 onSetInteractionMode = { viewModel.setInteractionMode(it) },
-                onCopy = { viewModel.onCopySelected() },
-                onPaste = { viewModel.onPaste() },
                 onDelete = { viewModel.onRemoveSelectedItems() },
                 onLockToggle = { 
                     uiState.selectedItemIds.forEach { viewModel.toggleLock(it) } 
@@ -594,28 +511,6 @@ fun ArScreen(
                 isMeasuring = uiState.isMeasuring,
                 onMeasureToggle = { viewModel.toggleMeasuring() }
             )
-        }
-        
-        // ── Paste Mode Overlay ────────────────────────────────────────────
-        if (uiState.isPasteMode) {
-            Box(
-                modifier = Modifier
-                    .align(Alignment.TopCenter)
-                    .padding(top = 80.dp)
-                    .background(MaterialTheme.colorScheme.primaryContainer, RoundedCornerShape(8.dp))
-                    .padding(horizontal = 16.dp, vertical = 8.dp)
-            ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text("Tap a surface to place duplicate", color = MaterialTheme.colorScheme.onPrimaryContainer)
-                    Spacer(Modifier.width(16.dp))
-                    IconButton(
-                        onClick = { viewModel.cancelPasteMode() },
-                        modifier = Modifier.size(24.dp)
-                    ) {
-                        Icon(Icons.Default.Close, "Cancel Paste")
-                    }
-                }
-            }
         }
 
         // ── Analytics Panel (Top Left) ───────────────────────────────────────
@@ -773,10 +668,7 @@ fun SelectionToolbar(
     modifier: Modifier = Modifier,
     interactionMode: InteractionMode,
     isLocked: Boolean = false,
-    canPaste: Boolean = false,
     onSetInteractionMode: (InteractionMode) -> Unit,
-    onCopy: () -> Unit,
-    onPaste: () -> Unit,
     onDelete: () -> Unit,
     onLockToggle: () -> Unit,
     onHideToggle: () -> Unit,
@@ -822,12 +714,7 @@ fun SelectionToolbar(
                     Icon(Icons.Default.ZoomOutMap, "Scale")
                 }
                 VerticalDivider(modifier = Modifier.height(24.dp))
-                IconButton(onClick = onCopy) {
-                    Icon(Icons.Default.FileCopy, "Copy")
-                }
-                IconButton(onClick = onPaste, enabled = canPaste) {
-                    Icon(Icons.Default.ContentPaste, "Paste", tint = if (canPaste) LocalContentColor.current else LocalContentColor.current.copy(alpha = 0.38f))
-                }
+
                 IconButton(onClick = onLockToggle) {
                     Icon(Icons.Default.Lock, "Lock")
                 }

@@ -56,9 +56,7 @@ data class ArUiState(
     val currentRoomName: String = "Untitled Room",
     
     // ── Interaction State ─────────────────────────────────────────────────────
-    val interactionMode: InteractionMode = InteractionMode.IDLE,
-    val isPasteMode: Boolean = false,
-    val copiedFurnitureId: String? = null,
+    val interactionMode: InteractionMode = InteractionMode.IDLE
 ) {
     // ── Analytics (Computed) ──────────────────────────────────────────────────
     val totalCostEstimate: Double

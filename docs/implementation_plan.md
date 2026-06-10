@@ -9,9 +9,11 @@
 ---
 
 ## 1. Project Management Overview
+
 The development of Lumiroom follows an Agile methodology structured around 2-week sprints.
 
 ### 1.1 Gantt Chart Roadmap
+
 ```mermaid
 gantt
     title Lumiroom Development Roadmap
@@ -46,9 +48,11 @@ gantt
    - 4.2 AR SceneView Integration
 
 ## 3. Risk Analysis
+
 See [Risk Assessment](RiskAssessment.md) for full mitigation matrices.
 
 ## 4. Release Plan
+
 - **Alpha (v0.1)**: Core AR placement with 10 built-in models. Local database only.
 - **Beta (v0.5)**: Cloud sync, 500+ models from FMP, and Voice Commands.
 - **V1.0 (Production)**: Vertex AI recommendations, full UI polish, and public Play Store release.
