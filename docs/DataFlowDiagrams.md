@@ -9,6 +9,7 @@
 ---
 
 ## 1. Level 0: Context Data Flow
+
 High-level data inputs and outputs.
 
 ```mermaid

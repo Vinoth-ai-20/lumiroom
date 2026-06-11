@@ -9,6 +9,7 @@
 ---
 
 ## 1. Voice Command Placement Sequence
+
 This sequence details the complete flow from a user speaking a command to a 3D object rendering in AR space.
 
 ```mermaid
@@ -43,6 +44,7 @@ sequenceDiagram
 ---
 
 ## 2. Cloud Synchronization Sequence
+
 Details the background sync mechanism when network connectivity is restored.
 
 ```mermaid

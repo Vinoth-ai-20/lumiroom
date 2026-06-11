@@ -8,6 +8,7 @@ import com.lumiroom.core.database.LumiroomDatabase
 import com.lumiroom.core.database.dao.FurnitureDao
 import com.lumiroom.core.database.dao.PlacedItemDao
 import com.lumiroom.core.database.dao.RoomDesignDao
+import com.lumiroom.core.database.dao.RoomPlanDao
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -33,6 +34,7 @@ object DatabaseModule {
         LumiroomDatabase::class.java,
         LumiroomDatabase.DATABASE_NAME,
     )
+        .fallbackToDestructiveMigration()
         .addCallback(DatabaseSeeder(context, furnitureDaoProvider))
         .addMigrations(object : Migration(1, 2) {
             override fun migrate(db: SupportSQLiteDatabase) {
@@ -54,6 +56,33 @@ object DatabaseModule {
                 db.execSQL("ALTER TABLE placed_item ADD COLUMN is_visible INTEGER NOT NULL DEFAULT 1")
             }
         })
+        .addMigrations(object : Migration(3, 4) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("CREATE TABLE IF NOT EXISTS `room_plans` (`id` TEXT NOT NULL, `name` TEXT NOT NULL, `createdAt` INTEGER NOT NULL, `updatedAt` INTEGER NOT NULL, `thumbnailPath` TEXT, `gridSizeCm` INTEGER NOT NULL, PRIMARY KEY(`id`))")
+                db.execSQL("CREATE TABLE IF NOT EXISTS `walls` (`id` TEXT NOT NULL, `planId` TEXT NOT NULL, `startX` REAL NOT NULL, `startY` REAL NOT NULL, `endX` REAL NOT NULL, `endY` REAL NOT NULL, `thicknessCm` REAL NOT NULL, PRIMARY KEY(`id`), FOREIGN KEY(`planId`) REFERENCES `room_plans`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE )")
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_walls_planId` ON `walls` (`planId`)")
+                db.execSQL("CREATE TABLE IF NOT EXISTS `floor_plan_items` (`id` TEXT NOT NULL, `planId` TEXT NOT NULL, `furnitureId` TEXT NOT NULL, `posX` REAL NOT NULL, `posY` REAL NOT NULL, `rotation` REAL NOT NULL, `scaleX` REAL NOT NULL, `scaleY` REAL NOT NULL, PRIMARY KEY(`id`), FOREIGN KEY(`planId`) REFERENCES `room_plans`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE , FOREIGN KEY(`furnitureId`) REFERENCES `furniture`(`id`) ON UPDATE NO ACTION ON DELETE RESTRICT )")
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_floor_plan_items_planId` ON `floor_plan_items` (`planId`)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_floor_plan_items_furnitureId` ON `floor_plan_items` (`furnitureId`)")
+            }
+        })
+        .addMigrations(object : Migration(4, 5) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("CREATE TABLE IF NOT EXISTS `doors` (`id` TEXT NOT NULL, `planId` TEXT NOT NULL, `startX` REAL NOT NULL, `startY` REAL NOT NULL, `endX` REAL NOT NULL, `endY` REAL NOT NULL, `thicknessCm` REAL NOT NULL, `swingAngle` REAL NOT NULL, PRIMARY KEY(`id`), FOREIGN KEY(`planId`) REFERENCES `room_plans`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE )")
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_doors_planId` ON `doors` (`planId`)")
+                db.execSQL("CREATE TABLE IF NOT EXISTS `windows` (`id` TEXT NOT NULL, `planId` TEXT NOT NULL, `startX` REAL NOT NULL, `startY` REAL NOT NULL, `endX` REAL NOT NULL, `endY` REAL NOT NULL, `thicknessCm` REAL NOT NULL, PRIMARY KEY(`id`), FOREIGN KEY(`planId`) REFERENCES `room_plans`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE )")
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_windows_planId` ON `windows` (`planId`)")
+            }
+        })
+        .addMigrations(object : Migration(5, 6) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE room_plans ADD COLUMN roomAnchorId TEXT")
+                db.execSQL("ALTER TABLE floor_plan_items ADD COLUMN posZ REAL NOT NULL DEFAULT 0.0")
+                db.execSQL("ALTER TABLE floor_plan_items ADD COLUMN scaleZ REAL NOT NULL DEFAULT 1.0")
+                db.execSQL("ALTER TABLE floor_plan_items ADD COLUMN isLocked INTEGER NOT NULL DEFAULT 0")
+                db.execSQL("ALTER TABLE floor_plan_items ADD COLUMN isVisible INTEGER NOT NULL DEFAULT 1")
+            }
+        })
         .fallbackToDestructiveMigrationOnDowngrade()
         .build()
 
@@ -68,4 +97,8 @@ object DatabaseModule {
     @Provides
     @Singleton
     fun providesPlacedItemDao(db: LumiroomDatabase): PlacedItemDao = db.placedItemDao()
+
+    @Provides
+    @Singleton
+    fun providesRoomPlanDao(db: LumiroomDatabase): RoomPlanDao = db.roomPlanDao()
 }

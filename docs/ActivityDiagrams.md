@@ -9,6 +9,7 @@
 ---
 
 ## 1. Voice Command Resolution Activity
+
 Details the internal logic of the fuzzy-matching NLP parser.
 
 ```mermaid
@@ -40,6 +41,7 @@ flowchart TD
 ```
 
 ## 2. FMP Batch Processing Activity
+
 Details the workflow of the Python automation script used by developers.
 
 ```mermaid

@@ -9,6 +9,7 @@
 ---
 
 ## 1. Authentication Flow Diagram
+
 All users must be authenticated anonymously or via Google Sign-In to access cloud features.
 
 ```mermaid
@@ -37,6 +38,7 @@ sequenceDiagram
 | Unauthorized Cloud Reads | Malicious API calls | Firestore Security Rules strictly enforce `request.auth.uid == resource.data.user_id`. |
 
 ## 3. Firestore Security Rules
+
 ```javascript
 rules_version = '2';
 service cloud.firestore {

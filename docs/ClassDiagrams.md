@@ -9,6 +9,7 @@
 ---
 
 ## 1. Domain Layer Class Diagram
+
 Demonstrates the separation between presentation state holders (ViewModels) and business logic (UseCases).
 
 ```mermaid
@@ -47,10 +48,11 @@ classDiagram
 ---
 
 ## 2. Data Layer Repository Pattern
+
 Shows the abstraction of Local and Remote data sources.
 
 ```mermaid
-classDiagram
+classDiagramS
     class FurnitureRepository {
         <<interface>>
         +getPlacedItems(roomId: String): Flow~List~PlacedItem~~

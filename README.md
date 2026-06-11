@@ -37,6 +37,7 @@ Lumiroom is an enterprise-grade Android application that redefines how users pla
 ---
 
 ## 🚀 Features
+
 - **True-to-Scale AR Visualization**: Anchor 3D models seamlessly into your physical environment.
 - **Hands-Free Voice Control**: Control the entire UI using natural language (e.g., "Place the modern sofa here").
 - **Offline-First Architecture**: Build rooms without a network connection; syncs automatically to the cloud when online.
@@ -82,6 +83,7 @@ Lumiroom features a complete, international-standard documentation suite adherin
 ---
 
 ## 🏗️ Architecture Overview
+
 Lumiroom uses a modern Android architecture based on **Unidirectional Data Flow (UDF)** and the **Repository Pattern**.
 
 ```mermaid
@@ -100,6 +102,7 @@ C4Context
 ---
 
 ## 🛠️ Technology Stack
+
 - **Language**: Kotlin
 - **UI Framework**: Jetpack Compose & Material 3
 - **AR Engine**: SceneView & ARCore
@@ -113,6 +116,7 @@ C4Context
 ---
 
 ## 📂 Folder Structure
+
 ```text
 lumiroom/
 ├── app/                  # Application entry point and DI setup
@@ -125,17 +129,21 @@ lumiroom/
 ---
 
 ## 💻 Installation & Build Guide
+
 ### Prerequisites
+
 - **Android Studio Koala** (or newer)
 - **JDK 17**
 - An ARCore supported Android device (API 29+)
 
 ### Firebase Setup
+
 1. Create a project in the [Firebase Console](https://console.firebase.google.com/).
 2. Enable Firestore, Storage, and Authentication.
 3. Replace `app/google-services.json.example` with your real `google-services.json`.
 
 ### Building the Project
+
 ```bash
 git clone https://github.com/Vinoth-ai-20/lumiroom.git
 cd lumiroom
@@ -145,7 +153,9 @@ cd lumiroom
 ---
 
 ## 🎙️ Voice Commands Guide
+
 Activate the microphone and speak natural commands:
+
 - *"Place a modern vanity here"* (Executes center-screen raycast)
 - *"Rotate the sofa 90 degrees"*
 - *"Remove this item"*
@@ -154,31 +164,37 @@ Activate the microphone and speak natural commands:
 ---
 
 ## 📱 Supported Devices
+
 Lumiroom requires a device with a Time-of-Flight (ToF) sensor or sufficient camera capabilities to support **Google ARCore Depth API**. Standard support begins at devices equivalent to the Google Pixel 4 / Samsung Galaxy S10 and newer.
 
 ---
 
 ## 🗺️ Roadmap
+
 Please see our detailed [Implementation Plan](docs/implementation_plan.md) and [Future Scope](docs/FutureScope.md) for full roadmap details.
 
 ---
 
 ## 🤝 Contributing
+
 We welcome contributions! Please see our [Contributing Guide](docs/ContributingGuide.md) and [Coding Standards](docs/CodingStandards.md) before submitting a Pull Request.
 
 ---
 
 ## 📜 License
+
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
 ---
 
 ## 🙏 Acknowledgements
+
 - [SceneView](https://github.com/SceneView/sceneview-android) for the incredible AR rendering engine.
 - [Google ARCore](https://developers.google.com/ar) for spatial tracking.
 
 ---
 
 ## 📚 References
+
 - ISO/IEC/IEEE 42010:2011, Systems and software engineering — Architecture description.
 - IEEE Std 830-1998, IEEE Recommended Practice for Software Requirements Specifications.

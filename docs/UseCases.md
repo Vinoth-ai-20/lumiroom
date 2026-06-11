@@ -43,6 +43,7 @@ flowchart LR
 ## 3. Narrative Use Cases
 
 ### UC-01: Voice Furniture Placement
+
 - **Trigger**: User speaks a placement command.
 - **Flow**:
   1. User activates microphone.
@@ -53,6 +54,7 @@ flowchart LR
 - **Exceptions**: Catalog item not found (shows fallback UI).
 
 ### UC-02: Offline Sync Queuing
+
 - **Trigger**: User makes an edit while offline.
 - **Flow**:
   1. Device loses Wi-Fi.

@@ -209,7 +209,7 @@ fun LumiroomNavHost(
         composable(LumiroomRoutes.ROOM_PLANNER) {
             RoomPlannerScreen(
                 onNavigateBack = safeNavigateBack,
-                onNavigateToAi = { navController.navigate(LumiroomRoutes.AI_ASSISTANT) }
+                onNavigateToAr = { navController.navigate(LumiroomRoutes.AR) }
             )
         }
 

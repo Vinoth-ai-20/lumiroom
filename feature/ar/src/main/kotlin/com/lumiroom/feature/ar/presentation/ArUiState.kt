@@ -1,7 +1,7 @@
 package com.lumiroom.feature.ar.presentation
 
-import com.lumiroom.core.database.entity.PlacedItemEntity
-import com.lumiroom.core.database.relation.PlacedItemWithFurniture
+import com.lumiroom.core.database.entity.FloorPlanItemEntity
+import com.lumiroom.core.database.relation.FloorPlanItemWithFurniture
 
 /**
  * Immutable UI state for the AR screen.
@@ -18,8 +18,9 @@ data class ArUiState(
     val planesDetected: Boolean = false,
     val planeCount: Int = 0,
 
-    // ── Placed Items ──────────────────────────────────────────────────────────
-    val placedItems: List<PlacedItemWithFurniture> = emptyList(),
+    // 📦 Placed Items 📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦
+    val placedItems: List<FloorPlanItemWithFurniture> = emptyList(),
+    val roomAnchorId: String? = null,
     val selectedItemIds: Set<String> = emptySet(),
     val lockedItemIds: Set<String> = emptySet(),
     val hiddenItemIds: Set<String> = emptySet(),
@@ -60,9 +61,9 @@ data class ArUiState(
 ) {
     // ── Analytics (Computed) ──────────────────────────────────────────────────
     val totalCostEstimate: Double
-        get() = placedItems.filter { it.placedItem.id !in hiddenItemIds }.sumOf { it.furniture.priceEstimate ?: 0.0 }
+        get() = placedItems.filter { it.item.id !in hiddenItemIds }.sumOf { it.furniture.priceEstimate ?: 0.0 }
     val totalItemCount: Int
-        get() = placedItems.count { it.placedItem.id !in hiddenItemIds }
+        get() = placedItems.count { it.item.id !in hiddenItemIds }
 }
 
 enum class InteractionMode {

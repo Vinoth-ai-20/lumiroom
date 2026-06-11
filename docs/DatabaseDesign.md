@@ -13,11 +13,13 @@
 ---
 
 ## 1. Overview
+
 Lumiroom uses a hybrid data architecture combining Android Room Database (SQLite) for instantaneous local reads/writes and Firebase Firestore for cross-device cloud synchronization.
 
 ---
 
 ## 2. ER Diagram (High Level)
+
 For detailed relationships, see [ER Diagrams](ERDiagrams.md).
 
 ```mermaid
@@ -32,6 +34,7 @@ erDiagram
 ## 3. Room Database Schema (Local SQLite)
 
 ### 3.1 `furniture_catalog`
+
 | Column | Type | Constraints | Description |
 |--------|------|-------------|-------------|
 | `id` | TEXT | PK | UUID of the 3D model |
@@ -40,6 +43,7 @@ erDiagram
 | `glb_uri` | TEXT | NOT NULL | Path to 3D asset |
 
 ### 3.2 `room_designs`
+
 | Column | Type | Constraints | Description |
 |--------|------|-------------|-------------|
 | `id` | TEXT | PK | UUID of the room |
@@ -48,6 +52,7 @@ erDiagram
 | `updated_at` | INTEGER | NOT NULL | Sync timestamp |
 
 ### 3.3 `placed_items`
+
 | Column | Type | Constraints | Description |
 |--------|------|-------------|-------------|
 | `id` | TEXT | PK | UUID of the placed instance |
@@ -62,7 +67,9 @@ erDiagram
 ## 4. Firestore Collections (Cloud)
 
 ### 4.1 `/users/{userId}/rooms/{roomId}`
+
 Mirrors the `room_designs` schema. Contains a `subcollection`:
+
 - `/users/{userId}/rooms/{roomId}/items/{itemId}`: Mirrors the `placed_items` schema.
 
 ---
@@ -79,12 +86,13 @@ Lumiroom implements a **Last-Write-Wins** synchronization strategy.
 ---
 
 ## 6. Migration Strategy
+
 Migrations are handled via Room's automated `Migration` classes.
 When altering schemas, the version number is incremented, and an explicit `Migration(x, y)` function executing `ALTER TABLE` SQL commands is provided to prevent destructive data loss during app updates.
 
 ---
 
 ## 7. Backup Strategy
+
 - **Local**: Android Auto Backup handles storing SQLite files in Google Drive.
 - **Cloud**: Firebase Firestore automated daily backups are enabled in the Google Cloud Console.
-

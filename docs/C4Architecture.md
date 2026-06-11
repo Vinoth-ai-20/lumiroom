@@ -9,6 +9,7 @@
 ---
 
 ## 1. Level 1: System Context Diagram
+
 Shows the system in relation to the user and external dependencies.
 
 ```mermaid
@@ -30,6 +31,7 @@ C4Context
 ---
 
 ## 2. Level 2: Container Diagram
+
 Breaks down the Lumiroom Application into executable/deployable units.
 
 ```mermaid
@@ -58,6 +60,7 @@ C4Container
 ---
 
 ## 3. Level 3: Component Diagram (Domain Logic Container)
+
 Breaks down the Domain Logic container.
 
 ```mermaid
@@ -66,13 +69,13 @@ C4Component
     
     Container_Boundary(domain, "Domain Logic Container") {
         Component(vm, "ArViewModel", "Kotlin", "State holder for AR Screen")
-        Component(placement, "PlaceFurnitureUseCase", "Kotlin", "Validates and processes placements")
+        ComponentS(placement, "PlaceFurnitureUseCase", "Kotlin", "Validates and processes placements")
         Component(voice, "VoiceCommandParser", "Kotlin", "NLP fuzz matching logic")
         Component(repo, "FurnitureRepository", "Kotlin", "Abstracts data source")
     }
     
     ComponentDb(room, "Room Database", "SQLite")
-    
+    S
     Rel(vm, voice, "Routes transcriptions")
     Rel(voice, placement, "Triggers intent")
     Rel(vm, placement, "Direct touch intent")

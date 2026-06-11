@@ -90,7 +90,7 @@ fun ArScreen(
     // Initialize AR Engine and Loaders to ModelNodes
     LaunchedEffect(uiState.placedItems, uiState.selectedItemIds, uiState.lockedItemIds, uiState.hiddenItemIds) {
         // Cleanup removed items
-        val currentIds = uiState.placedItems.map { it.placedItem.id }.toSet()
+        val currentIds = uiState.placedItems.map { it.item.id }.toSet()
         val nodeIds = childNodes.mapNotNull { it.name }.toSet()
         val idsToRemove = nodeIds - currentIds
         idsToRemove.forEach { idToRemove ->
@@ -103,7 +103,7 @@ fun ArScreen(
         
         val toAdd = currentIds - nodeIds
         toAdd.forEach { id ->
-            val placedItem = uiState.placedItems.find { it.placedItem.id == id } ?: return@forEach
+            val placedItem = uiState.placedItems.find { it.item.id == id } ?: return@forEach
             coroutineScope.launch {
 
                 val modelInstance = try {
@@ -124,7 +124,7 @@ fun ArScreen(
 
                         Node(engine).apply {
                             name = id
-                            position = Position(placedItem.placedItem.posX, placedItem.placedItem.posY, placedItem.placedItem.posZ)
+                            position = Position(placedItem.item.posX, placedItem.item.posY, placedItem.item.posZ)
                         }
                     }
                     
@@ -134,11 +134,8 @@ fun ArScreen(
 
                     val transformNode = io.github.sceneview.node.Node(engine = engine).apply {
                         name = "transform_$id"
-                        this.scale = Scale(placedItem.placedItem.scaleX, placedItem.placedItem.scaleY, placedItem.placedItem.scaleZ)
-                        this.quaternion = dev.romainguy.kotlin.math.Quaternion(
-                            placedItem.placedItem.rotX, placedItem.placedItem.rotY,
-                            placedItem.placedItem.rotZ, placedItem.placedItem.rotW
-                        )
+                        this.scale = Scale(placedItem.item.scaleX, placedItem.item.scaleY, placedItem.item.scaleZ)
+                        this.quaternion = dev.romainguy.kotlin.math.Quaternion.fromAxisAngle(dev.romainguy.kotlin.math.Float3(0f, 1f, 0f), placedItem.item.rotation)
                         transformNodesMap[id] = this
                         
                         isPositionEditable = false
@@ -208,12 +205,12 @@ fun ArScreen(
                 }
 
                 // Sync and animate external transform changes (e.g., Undo, Redo, Reset)
-                val uiItem = uiState.placedItems.find { it.placedItem.id == id }?.placedItem
+                val uiItem = uiState.placedItems.find { it.item.id == id }?.item
 
                 
                 if (uiItem != null && uiState.interactionMode != InteractionMode.MOVE && uiState.interactionMode != InteractionMode.ROTATE && uiState.interactionMode != InteractionMode.SCALE) {
                     val targetPos = io.github.sceneview.math.Position(uiItem.posX, uiItem.posY, uiItem.posZ)
-                    val targetRot = dev.romainguy.kotlin.math.Quaternion(uiItem.rotX, uiItem.rotY, uiItem.rotZ, uiItem.rotW)
+                    val targetRot = dev.romainguy.kotlin.math.Quaternion.fromAxisAngle(dev.romainguy.kotlin.math.Float3(0f, 1f, 0f), uiItem.rotation)
                     val targetScale = io.github.sceneview.math.Scale(uiItem.scaleX, uiItem.scaleY, uiItem.scaleZ)
 
                     val dist = dev.romainguy.kotlin.math.length(baseNode.position - targetPos)
@@ -393,7 +390,7 @@ fun ArScreen(
                                 posX = baseNode.worldPosition.x,
                                 posY = baseNode.worldPosition.y,
                                 posZ = baseNode.worldPosition.z,
-                                rotX = transformNode.quaternion.x, rotY = transformNode.quaternion.y, rotZ = transformNode.quaternion.z, rotW = transformNode.quaternion.w,
+                                rotX = 0f, rotY = Math.toDegrees(dev.romainguy.kotlin.math.eulerAngles(transformNode.quaternion).y.toDouble()).toFloat(), rotZ = 0f, rotW = 1f,
                                 scaleX = transformNode.scale.x, scaleY = transformNode.scale.y, scaleZ = transformNode.scale.z,
                                 matrixJson = ""
                             )
@@ -409,7 +406,7 @@ fun ArScreen(
                             posX = baseNode.worldPosition.x,
                             posY = baseNode.worldPosition.y,
                             posZ = baseNode.worldPosition.z,
-                            rotX = transformNode.quaternion.x, rotY = transformNode.quaternion.y, rotZ = transformNode.quaternion.z, rotW = transformNode.quaternion.w,
+                            rotX = 0f, rotY = Math.toDegrees(dev.romainguy.kotlin.math.eulerAngles(transformNode.quaternion).y.toDouble()).toFloat(), rotZ = 0f, rotW = 1f,
                             scaleX = transformNode.scale.x, scaleY = transformNode.scale.y, scaleZ = transformNode.scale.z,
                             matrixJson = ""
                         )
@@ -422,7 +419,7 @@ fun ArScreen(
                     if (uiState.lockedItemIds.contains(selectedId)) return
                     
                     val transformNode = transformNodesMap[selectedId] ?: return
-                    val placedItem = uiState.placedItems.find { it.placedItem.id == selectedId } ?: return
+                    val placedItem = uiState.placedItems.find { it.item.id == selectedId } ?: return
                     
                     super.onScale(detector, e, node)
                     val factor = detector.scaleFactor
@@ -432,7 +429,7 @@ fun ArScreen(
                     val newScaleZ = (transformNode.scale.z * dampenedFactor).coerceIn(0.1f, 5.0f)
                     transformNode.scale = Scale(newScaleX, newScaleY, newScaleZ)
                     
-                    val percentage = (newScaleX / placedItem.placedItem.initScaleX * 100).toInt()
+                    val percentage = (newScaleX / 1f * 100).toInt()
                     activeScaleText = "$percentage%"
                 }
 
@@ -450,7 +447,7 @@ fun ArScreen(
                         posX = baseNode.worldPosition.x,
                         posY = baseNode.worldPosition.y,
                         posZ = baseNode.worldPosition.z,
-                        rotX = transformNode.quaternion.x, rotY = transformNode.quaternion.y, rotZ = transformNode.quaternion.z, rotW = transformNode.quaternion.w,
+                        rotX = 0f, rotY = Math.toDegrees(dev.romainguy.kotlin.math.eulerAngles(transformNode.quaternion).y.toDouble()).toFloat(), rotZ = 0f, rotW = 1f,
                         scaleX = transformNode.scale.x, scaleY = transformNode.scale.y, scaleZ = transformNode.scale.z,
                         matrixJson = ""
                     )
@@ -478,13 +475,35 @@ fun ArScreen(
                                 val anchor = hitResult.trackable.createAnchor(identityPose)
                                 anchorCache[instanceId] = anchor
                                 
-                                viewModel.onPlaneTapped(
-                                    instanceId = instanceId,
-                                    furnitureId = pendingFurnitureId!!,
-                                    hitPosX = pose.tx(), hitPosY = pose.ty(), hitPosZ = pose.tz(),
-                                    rotX = pose.qx(), rotY = pose.qy(), rotZ = pose.qz(), rotW = pose.qw()
-                                )
-                                pendingFurnitureId = null
+                                if (uiState.roomAnchorId == null) {
+                                    viewModel.setRoomAnchor(instanceId)
+                                } else {
+                                    // 2D Mapping: calculate position relative to roomAnchor
+                                    val roomAnchor = anchorCache[uiState.roomAnchorId!!]
+                                    if (roomAnchor != null) {
+                                        val relPose = roomAnchor.pose.inverse().compose(pose)
+                                        // 2D coordinates in meters (ARCore native scale)
+                                        val relX = relPose.tx()
+                                        val relY = relPose.tz() // Z depth in AR = Y in 2D
+                                        val relZ = relPose.ty() // Y height in AR = Z in 2D
+                                        
+                                        // Yaw difference (rough approximation)
+                                        val eulerHit = dev.romainguy.kotlin.math.eulerAngles(dev.romainguy.kotlin.math.Quaternion(pose.qx(), pose.qy(), pose.qz(), pose.qw()))
+                                        val eulerAnchor = dev.romainguy.kotlin.math.eulerAngles(dev.romainguy.kotlin.math.Quaternion(roomAnchor.pose.qx(), roomAnchor.pose.qy(), roomAnchor.pose.qz(), roomAnchor.pose.qw()))
+                                        val relYaw = eulerHit.y - eulerAnchor.y
+                                        val rotDegrees = Math.toDegrees(relYaw.toDouble()).toFloat()
+
+                                        viewModel.onPlaneTapped(
+                                            instanceId = instanceId,
+                                            furnitureId = pendingFurnitureId!!,
+                                            hitPosX = relX, hitPosY = relY, hitPosZ = relZ,
+                                            rotX = 0f, rotY = rotDegrees, rotZ = 0f, rotW = 1f
+                                        )
+                                        pendingFurnitureId = null
+                                    } else {
+                                        Log.w("ArPlacement", "Room anchor not found in cache. Cannot map to 2D.")
+                                    }
+                                }
                             } else {
                                 Log.w("ArPlacement", "Hit result did not match any planes.")
                             }
@@ -602,7 +621,7 @@ fun ArScreen(
         // ── Furniture Details Panel (Left) ────────────────────────────────────
         if (uiState.selectedItemIds.size == 1) {
             val selectedId = uiState.selectedItemIds.first()
-            val item = uiState.placedItems.find { it.placedItem.id == selectedId }?.furniture
+            val item = uiState.placedItems.find { it.item.id == selectedId }?.furniture
             if (item != null) {
                 FurnitureDetailsPanel(
                     modifier = Modifier.align(Alignment.CenterStart).padding(start = 16.dp),
@@ -614,7 +633,7 @@ fun ArScreen(
         // ── Measurement Panel (Right) ─────────────────────────────────────────
         if (uiState.isMeasuring && uiState.selectedItemIds.size == 1) {
             val selectedId = uiState.selectedItemIds.first()
-            val item = uiState.placedItems.find { it.placedItem.id == selectedId }
+            val item = uiState.placedItems.find { it.item.id == selectedId }
             if (item != null) {
                 Card(
                     modifier = Modifier.align(Alignment.CenterEnd).padding(end = 16.dp),
@@ -624,9 +643,9 @@ fun ArScreen(
                     Column(modifier = Modifier.padding(16.dp)) {
                         Text("Measurements", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                         Spacer(Modifier.height(8.dp))
-                        Text("W: ${String.format("%.2f", item.furniture.width * item.placedItem.scaleX)} cm")
-                        Text("H: ${String.format("%.2f", item.furniture.height * item.placedItem.scaleY)} cm")
-                        Text("D: ${String.format("%.2f", item.furniture.depth * item.placedItem.scaleZ)} cm")
+                        Text("W: ${String.format("%.2f", item.furniture.width * item.item.scaleX)} cm")
+                        Text("H: ${String.format("%.2f", item.furniture.height * item.item.scaleY)} cm")
+                        Text("D: ${String.format("%.2f", item.furniture.depth * item.item.scaleZ)} cm")
                     }
                 }
             }

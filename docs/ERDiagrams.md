@@ -52,5 +52,6 @@ erDiagram
 ```
 
 ## 2. Constraints & Indexes
+
 - Foreign key constraints heavily cascade on delete (e.g., deleting a `ROOM_DESIGN` cascades deletion to all associated `PLACED_ITEMS`).
 - Composite index on `(room_id, catalog_id)` optimizes scene loading performance.
