@@ -14,6 +14,7 @@ import com.lumiroom.feature.roomplanner.domain.geometry.LineSegment
 import com.lumiroom.core.database.repository.FurnitureRepository
 import com.lumiroom.core.domain.SharedRoomRepository
 import com.lumiroom.core.domain.RoomStateManager
+import com.lumiroom.core.domain.TransformManager
 import com.lumiroom.core.domain.model.*
 import com.lumiroom.core.database.model.Furniture
 import com.lumiroom.core.database.dao.RoomPlanDao
@@ -98,12 +99,14 @@ data class RoomPlannerUiState(
     val snapToWalls: Boolean = true
 )
 
+
 @HiltViewModel
 class RoomPlannerViewModel @Inject constructor(
     private val furnitureRepository: FurnitureRepository,
     private val roomPlanDao: RoomPlanDao,
     private val sharedRoomRepository: SharedRoomRepository,
     private val roomStateManager: RoomStateManager,
+    private val transformManager: TransformManager,
     private val savedStateHandle: SavedStateHandle
 ) : ViewModel() {
 
@@ -212,31 +215,62 @@ class RoomPlannerViewModel @Inject constructor(
         val planId = savedStateHandle.get<String>("planId")
         if (planId != null) {
             currentPlanId = planId
-            viewModelScope.launch {
+        }
+
+        viewModelScope.launch {
+            android.util.Log.d("RoomPlanner", "[INIT] Coroutine started. planId=$planId currentPlanId=$currentPlanId")
+            // Load saved plan if we have a planId; otherwise initialize with an empty model
+            if (planId != null) {
                 val dbState = sharedRoomRepository.getRoomState(planId)
                 if (dbState != null) {
+                    android.util.Log.d("RoomPlanner", "[INIT] Loaded plan from DB. furniture=${dbState.furniture.size}")
                     roomStateManager.initialize(dbState)
+                } else {
+                    android.util.Log.d("RoomPlanner", "[INIT] planId supplied but no DB data. Initializing empty.")
+                    roomStateManager.initialize(RoomModel(
+                        planId = currentPlanId,
+                        name = "New Room",
+                        walls = emptyList(),
+                        doors = emptyList(),
+                        windows = emptyList(),
+                        furniture = emptyList()
+                    ))
                 }
-                
-                roomStateManager.roomModel.collect { model ->
-                    if (model != null) {
-                        _uiState.update { state ->
-                            if (state.draggedFurnitureId == null) {
-                                state.copy(
-                                    walls = model.walls.map { Wall(it.id, LineSegment(Point2D(it.startX, it.startY), Point2D(it.endX, it.endY)), it.thicknessCm) },
-                                    doors = model.doors.map { Door(it.id, LineSegment(Point2D(it.startX, it.startY), Point2D(it.endX, it.endY)), it.thicknessCm, it.swingAngle) },
-                                    windows = model.windows.map { Window(it.id, LineSegment(Point2D(it.startX, it.startY), Point2D(it.endX, it.endY)), it.thicknessCm) },
-                                    furniture = model.furniture.map { Placed2DFurniture(it.id, it.furnitureId, Point2D(it.positionX, it.positionY), it.rotation, it.scaleX, it.widthCm, it.depthCm, it.colorHex, it.zIndex, false) },
-                                    focusedPlacedFurnitureIds = model.selectionState.selectedItemIds,
-                                    canUndo = roomStateManager.canUndo,
-                                    canRedo = roomStateManager.canRedo
-                                )
-                            } else {
-                                state
-                            }
+            } else {
+                android.util.Log.d("RoomPlanner", "[INIT] No planId. Initializing empty model with planId=$currentPlanId")
+                roomStateManager.initialize(RoomModel(
+                    planId = currentPlanId,
+                    name = "New Room",
+                    walls = emptyList(),
+                    doors = emptyList(),
+                    windows = emptyList(),
+                    furniture = emptyList()
+                ))
+            }
+            android.util.Log.d("RoomPlanner", "[INIT] roomModel.value after init: ${roomStateManager.roomModel.value?.furniture?.size} furniture items")
+
+            // Always collect state from the manager back into _uiState
+            roomStateManager.roomModel.collect { model ->
+                android.util.Log.d("RoomPlanner", "[COLLECT] roomModel emitted. model=${if (model == null) "null" else "furniture=${model.furniture.size}"}")
+                if (model != null) {
+                    _uiState.update { state ->
+                        if (state.draggedFurnitureId == null) {
+                            android.util.Log.d("RoomPlanner", "[COLLECT] Updating uiState with ${model.furniture.size} furniture items")
+                            state.copy(
+                                walls = model.walls.map { Wall(it.id, LineSegment(Point2D(it.startX, it.startY), Point2D(it.endX, it.endY)), it.thicknessCm) },
+                                doors = model.doors.map { Door(it.id, LineSegment(Point2D(it.startX, it.startY), Point2D(it.endX, it.endY)), it.thicknessCm, it.swingAngle) },
+                                windows = model.windows.map { Window(it.id, LineSegment(Point2D(it.startX, it.startY), Point2D(it.endX, it.endY)), it.thicknessCm) },
+                                furniture = model.furniture.map { Placed2DFurniture(it.id, it.furnitureId, Point2D(it.positionX, it.positionY), it.rotation, it.scaleX, it.widthCm, it.depthCm, it.colorHex, it.zIndex, false) },
+                                focusedPlacedFurnitureIds = model.selectionState.selectedItemIds,
+                                canUndo = roomStateManager.canUndo,
+                                canRedo = roomStateManager.canRedo
+                            )
+                        } else {
+                            android.util.Log.d("RoomPlanner", "[COLLECT] Skipped uiState update (dragging in progress)")
+                            state
                         }
-                        updateAreaAndPerimeter(_uiState.value.walls)
                     }
+                    updateAreaAndPerimeter(_uiState.value.walls)
                 }
             }
         }
@@ -247,7 +281,12 @@ class RoomPlannerViewModel @Inject constructor(
     }
 
     fun selectFurnitureFromCatalog(furnitureId: String) {
+        val selectedFurniture = catalog.value.find { it.id == furnitureId }
+        android.util.Log.d("RoomPlanner", "[CATALOG] Item selected: ID=$furnitureId category=${selectedFurniture?.category} width=${selectedFurniture?.width} depth=${selectedFurniture?.depth}")
+        android.util.Log.d("RoomPlanner", "[CATALOG] catalog.value.size=${catalog.value.size}")
+        android.util.Log.d("RoomPlanner", "[CATALOG] roomModel.value is ${if (roomStateManager.roomModel.value == null) "NULL - placement WILL FAIL" else "non-null OK"}")
         _uiState.update { it.copy(mode = InteractionMode.PLACE_FURNITURE, selectedFurnitureId = furnitureId) }
+        android.util.Log.d("RoomPlanner", "[CATALOG] uiState after: mode=${_uiState.value.mode} selectedFurnitureId=${_uiState.value.selectedFurnitureId}")
     }
 
     fun updateTransform(panX: Float, panY: Float, zoom: Float) {
@@ -348,6 +387,8 @@ class RoomPlannerViewModel @Inject constructor(
 
     fun onCanvasPointerDown(point: Point2D) {
         val state = _uiState.value
+        android.util.Log.d("RoomPlanner", "[TAP] onCanvasPointerDown: mode=${state.mode} selectedFurnitureId=${state.selectedFurnitureId} point=$point")
+        android.util.Log.d("RoomPlanner", "[TAP] roomModel.value=${if (roomStateManager.roomModel.value == null) "NULL" else "furniture=${roomStateManager.roomModel.value!!.furniture.size}"}")
         if (state.mode == InteractionMode.DRAW_WALL || 
             state.mode == InteractionMode.DRAW_DOOR || 
             state.mode == InteractionMode.DRAW_WINDOW || 
@@ -355,15 +396,25 @@ class RoomPlannerViewModel @Inject constructor(
             val snapped = getSnappedPoint(point)
             _uiState.update { it.copy(currentDrawingStartPoint = snapped, currentDrawingEndPoint = snapped) }
         } else if (state.mode == InteractionMode.PLACE_FURNITURE && state.selectedFurnitureId != null) {
+            android.util.Log.d("RoomPlanner", "[PLACE] Placement branch entered. Searching catalog for id=${state.selectedFurnitureId}")
             val selectedFurniture = catalog.value.find { it.id == state.selectedFurnitureId }
+            android.util.Log.d("RoomPlanner", "[PLACE] selectedFurniture=${selectedFurniture?.name} width=${selectedFurniture?.width} depth=${selectedFurniture?.depth}")
+            val newFurnitureId = java.util.UUID.randomUUID().toString()
+            // Catalog stores dimensions in meters; canvas renders in centimeters (1px = 1cm)
+            val widthCm = if (selectedFurniture != null) (selectedFurniture.width * 100f).coerceAtLeast(40f) else 100f
+            val depthCm = if (selectedFurniture != null) (selectedFurniture.depth * 100f).coerceAtLeast(40f) else 100f
             val newFurniture = Placed2DFurniture(
-                id = java.util.UUID.randomUUID().toString(),
+                id = newFurnitureId,
                 furnitureId = state.selectedFurnitureId,
                 position = point,
-                widthCm = selectedFurniture?.width ?: 100f,
-                depthCm = selectedFurniture?.depth ?: 100f
+                widthCm = widthCm,
+                depthCm = depthCm
             )
+            val sizeBefore = state.furniture.size
+            android.util.Log.d("RoomPlanner", "[PLACE] Creating furniture: id=$newFurnitureId pos=$point w=${newFurniture.widthCm} d=${newFurniture.depthCm} sizeBefore=$sizeBefore")
             updateRoomState(furniture = state.furniture + newFurniture)
+            android.util.Log.d("RoomPlanner", "[PLACE] updateRoomState done. roomModel furniture=${roomStateManager.roomModel.value?.furniture?.size}")
+            android.util.Log.d("RoomPlanner", "[PLACE] uiState.furniture BEFORE mode switch=${_uiState.value.furniture.size}")
             _uiState.update { it.copy(mode = InteractionMode.SELECT, selectedFurnitureId = null) }
         } else if (state.mode == InteractionMode.SELECT) {
             val touchedFurniture = state.furniture.sortedByDescending { it.zIndex }.find { f ->
@@ -586,33 +637,45 @@ class RoomPlannerViewModel @Inject constructor(
         val state = _uiState.value
         val ids = state.focusedPlacedFurnitureIds
         if (ids.isEmpty()) return
-        val newFurniture = state.furniture.map { f ->
-            if (ids.contains(f.id)) f.copy(position = Point2D(f.position.x + dx, f.position.y + dy)) else f
+        
+        roomStateManager.updateState { model ->
+            val newFurnitureList = model.furniture.map { f ->
+                if (ids.contains(f.id)) {
+                    transformManager.move(f, dx, dy, 0f)
+                } else f
+            }
+            model.copy(furniture = newFurnitureList)
         }
-        updateRoomState(furniture = checkCollisions(newFurniture)
-        )
     }
 
     fun rotateFocusedFurniture(deltaDegrees: Float) {
         val state = _uiState.value
         val ids = state.focusedPlacedFurnitureIds
         if (ids.isEmpty()) return
-        val newFurniture = state.furniture.map { f ->
-            if (ids.contains(f.id)) f.copy(rotation = f.rotation + deltaDegrees) else f
+        
+        roomStateManager.updateState { model ->
+            val newFurnitureList = model.furniture.map { f ->
+                if (ids.contains(f.id)) {
+                    transformManager.rotate(f, deltaDegrees)
+                } else f
+            }
+            model.copy(furniture = newFurnitureList)
         }
-        updateRoomState(furniture = checkCollisions(newFurniture)
-        )
     }
 
     fun scaleFocusedFurniture(deltaScale: Float) {
         val state = _uiState.value
         val ids = state.focusedPlacedFurnitureIds
         if (ids.isEmpty()) return
-        val newFurniture = state.furniture.map { f ->
-            if (ids.contains(f.id)) f.copy(scale = (f.scale + deltaScale).coerceIn(0.5f, 3.0f)) else f
+        
+        roomStateManager.updateState { model ->
+            val newFurnitureList = model.furniture.map { f ->
+                if (ids.contains(f.id)) {
+                    transformManager.scale(f, deltaScale)
+                } else f
+            }
+            model.copy(furniture = newFurnitureList)
         }
-        updateRoomState(furniture = checkCollisions(newFurniture)
-        )
     }
 
     fun bringFurnitureForward() {

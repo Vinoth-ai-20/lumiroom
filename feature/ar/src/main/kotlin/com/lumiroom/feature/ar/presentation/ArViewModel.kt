@@ -20,6 +20,7 @@ import com.lumiroom.feature.voice.VoiceResult
 import com.lumiroom.feature.ar.domain.CloudAnchorManager
 import com.lumiroom.core.domain.model.RoomWall
 import com.lumiroom.core.domain.model.Point2DData
+import com.lumiroom.core.domain.TransformManager
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.flow.*
@@ -37,6 +38,7 @@ class ArViewModel @Inject constructor(
     private val voiceCommandManager: VoiceCommandManager,
     private val commandParser: CommandParser,
     private val cloudAnchorManager: CloudAnchorManager,
+    private val transformManager: TransformManager,
     @Dispatcher(LumiroomDispatcher.IO) private val ioDispatcher: CoroutineDispatcher,
 ) : ViewModel(), VoiceCommandExecutor {
 
@@ -146,6 +148,11 @@ class ArViewModel @Inject constructor(
                     positionZ = hitPosY, // Height Z is mapped to Y
                     rotation = rotY,
                     scaleX = 1f, scaleY = 1f, scaleZ = 1f,
+                    initialPositionX = hitPosX,
+                    initialPositionY = hitPosZ,
+                    initialPositionZ = hitPosY,
+                    initialRotation = rotY,
+                    initialScaleX = 1f, initialScaleY = 1f, initialScaleZ = 1f,
                     widthCm = furnitureModel.width * 100f,
                     depthCm = furnitureModel.depth * 100f,
                     heightCm = furnitureModel.height * 100f,
@@ -261,7 +268,7 @@ class ArViewModel @Inject constructor(
         roomStateManager.updateState { model ->
             val newFurniture = model.furniture.map { item ->
                 if (item.id in selectedIds) {
-                    item.copy(rotation = 0f, scaleX = 1f, scaleY = 1f, scaleZ = 1f)
+                    transformManager.resetTransform(item)
                 } else {
                     item
                 }
@@ -391,6 +398,7 @@ class ArViewModel @Inject constructor(
     }
 
     override fun executeCommand(command: VoiceCommand) {
+        android.util.Log.d("VoiceCommand", "Executing: $command")
         when (command) {
             is VoiceCommand.Help -> _uiState.update { it.copy(showVoiceHelpDialog = true) }
             is VoiceCommand.Place -> {
@@ -400,6 +408,8 @@ class ArViewModel @Inject constructor(
                         val voiceInstanceId = java.util.UUID.randomUUID().toString()
                         onPlaneTapped(voiceInstanceId, item.id, 0f, 0f, -1f)
                         _events.emit(ArViewEvent.ShowSnackbar("Placing ${item.name}"))
+                    } else {
+                        _events.emit(ArViewEvent.ShowSnackbar("Could not find ${command.itemName}"))
                     }
                 }
             }
@@ -412,20 +422,70 @@ class ArViewModel @Inject constructor(
                 }
             }
             is VoiceCommand.Deselect -> onItemSelected(null)
-            is VoiceCommand.Rotate -> {
+            is VoiceCommand.RotateRelative -> {
                 val selectedId = _uiState.value.selectedItemIds.firstOrNull()
                 if (selectedId != null) {
-                    viewModelScope.launch { _events.emit(ArViewEvent.RotateSelectedItem(command.degrees)) }
+                    roomStateManager.updateState { model ->
+                        model.copy(furniture = model.furniture.map {
+                            if (it.id == selectedId) transformManager.rotate(it, command.degrees) else it
+                        })
+                    }
                 }
             }
-            is VoiceCommand.Scale -> {
-                 viewModelScope.launch { _events.emit(ArViewEvent.ScaleSelectedItem(command.factor)) }
+            is VoiceCommand.RotateAbsolute -> {
+                val selectedId = _uiState.value.selectedItemIds.firstOrNull()
+                if (selectedId != null) {
+                    roomStateManager.updateState { model ->
+                        model.copy(furniture = model.furniture.map {
+                            if (it.id == selectedId) transformManager.rotateAbsolute(it, command.degrees) else it
+                        })
+                    }
+                }
+            }
+            is VoiceCommand.ScaleRelative -> {
+                val selectedId = _uiState.value.selectedItemIds.firstOrNull()
+                if (selectedId != null) {
+                    roomStateManager.updateState { model ->
+                        model.copy(furniture = model.furniture.map {
+                            if (it.id == selectedId) transformManager.scale(it, command.delta) else it
+                        })
+                    }
+                }
+            }
+            is VoiceCommand.ScaleAbsolute -> {
+                val selectedId = _uiState.value.selectedItemIds.firstOrNull()
+                if (selectedId != null) {
+                    roomStateManager.updateState { model ->
+                        model.copy(furniture = model.furniture.map {
+                            if (it.id == selectedId) transformManager.scaleAbsolute(it, command.percent) else it
+                        })
+                    }
+                }
+            }
+            is VoiceCommand.Move -> {
+                val selectedId = _uiState.value.selectedItemIds.firstOrNull()
+                if (selectedId != null) {
+                    val distance = 0.5f // 50cm per command
+                    val (dx, dy) = when (command.direction) {
+                        "forward" -> Pair(0f, -distance)
+                        "backward" -> Pair(0f, distance)
+                        "left" -> Pair(-distance, 0f)
+                        "right" -> Pair(distance, 0f)
+                        else -> Pair(0f, 0f)
+                    }
+                    roomStateManager.updateState { model ->
+                        model.copy(furniture = model.furniture.map {
+                            if (it.id == selectedId) transformManager.move(it, dx, dy, 0f) else it
+                        })
+                    }
+                }
             }
             is VoiceCommand.DeleteSelected -> onRemoveSelectedItems()
+            is VoiceCommand.ResetObject -> onResetTransform()
             is VoiceCommand.Undo -> onUndo()
             is VoiceCommand.Redo -> onRedo()
             else -> {
-                viewModelScope.launch { _events.emit(ArViewEvent.ShowSnackbar("Command not implemented yet.")) }
+                viewModelScope.launch { _events.emit(ArViewEvent.ShowSnackbar("Command not fully implemented.")) }
             }
         }
     }
@@ -436,8 +496,6 @@ sealed class ArViewEvent {
     object NavigateToCatalog : ArViewEvent()
     data class ShowSnackbar(val message: String) : ArViewEvent()
     object RoomSaved : ArViewEvent()
-    data class RotateSelectedItem(val degrees: Float) : ArViewEvent()
-    data class ScaleSelectedItem(val factor: Float) : ArViewEvent()
     object TakeScreenshot : ArViewEvent()
     object ShareScreenshot : ArViewEvent()
 }

@@ -92,6 +92,17 @@ object DatabaseModule {
                 db.execSQL("ALTER TABLE room_plans ADD COLUMN anchorsJson TEXT")
             }
         })
+        .addMigrations(object : Migration(7, 8) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE floor_plan_items ADD COLUMN initPosX REAL NOT NULL DEFAULT 0.0")
+                db.execSQL("ALTER TABLE floor_plan_items ADD COLUMN initPosY REAL NOT NULL DEFAULT 0.0")
+                db.execSQL("ALTER TABLE floor_plan_items ADD COLUMN initPosZ REAL NOT NULL DEFAULT 0.0")
+                db.execSQL("ALTER TABLE floor_plan_items ADD COLUMN initRotation REAL NOT NULL DEFAULT 0.0")
+                db.execSQL("ALTER TABLE floor_plan_items ADD COLUMN initScaleX REAL NOT NULL DEFAULT 1.0")
+                db.execSQL("ALTER TABLE floor_plan_items ADD COLUMN initScaleY REAL NOT NULL DEFAULT 1.0")
+                db.execSQL("ALTER TABLE floor_plan_items ADD COLUMN initScaleZ REAL NOT NULL DEFAULT 1.0")
+            }
+        })
         .fallbackToDestructiveMigrationOnDowngrade()
         .build()
 

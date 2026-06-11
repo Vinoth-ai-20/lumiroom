@@ -36,6 +36,13 @@ data class FloorPlanItemEntity(
     val scaleX: Float = 1f,
     val scaleY: Float = 1f,
     val scaleZ: Float = 1f,
+    val initPosX: Float = 0f,
+    val initPosY: Float = 0f,
+    val initPosZ: Float = 0f,
+    val initRotation: Float = 0f,
+    val initScaleX: Float = 1f,
+    val initScaleY: Float = 1f,
+    val initScaleZ: Float = 1f,
     val isLocked: Boolean = false,
     val isVisible: Boolean = true
 )

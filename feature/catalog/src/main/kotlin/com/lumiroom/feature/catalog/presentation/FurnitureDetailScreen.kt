@@ -147,7 +147,8 @@ fun FurnitureDetailScreen(
                     
                     Spacer(Modifier.height(16.dp))
                     
-                    Text(text = "Category: ${item.category}", style = MaterialTheme.typography.titleMedium)
+                    val formattedCategory = item.category.replaceFirstChar { if (it.isLowerCase()) it.titlecase(java.util.Locale.getDefault()) else it.toString() }
+                    Text(text = "Category: $formattedCategory", style = MaterialTheme.typography.titleMedium)
                     Spacer(Modifier.height(8.dp))
                     Text(text = "Description: ${item.description}", style = MaterialTheme.typography.bodyMedium)
                     
@@ -157,9 +158,12 @@ fun FurnitureDetailScreen(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
-                        Text("Width: ${item.width} cm")
-                        Text("Height: ${item.height} cm")
-                        Text("Depth: ${item.depth} cm")
+                        val w = if (item.width >= 1f) String.format("%.2f m", item.width) else String.format("%.0f cm", item.width * 100f)
+                        val h = if (item.height >= 1f) String.format("%.2f m", item.height) else String.format("%.0f cm", item.height * 100f)
+                        val d = if (item.depth >= 1f) String.format("%.2f m", item.depth) else String.format("%.0f cm", item.depth * 100f)
+                        Text("Width: $w")
+                        Text("Height: $h")
+                        Text("Depth: $d")
                     }
                     
                     Spacer(Modifier.height(16.dp))

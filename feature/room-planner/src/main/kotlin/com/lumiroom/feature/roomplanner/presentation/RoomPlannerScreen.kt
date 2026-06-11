@@ -5,6 +5,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.gestures.detectDragGestures
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.detectTransformGestures
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
@@ -274,14 +275,13 @@ fun RoomPlannerScreen(
                                 }
                             )
                         } else if (uiState.mode == InteractionMode.PLACE_FURNITURE) {
-                            detectDragGestures(
-                                onDragStart = { offset ->
+                            detectTapGestures(
+                                onTap = { offset ->
                                     val worldX = (offset.x - uiState.panX) / uiState.zoom
                                     val worldY = (offset.y - uiState.panY) / uiState.zoom
+                                    android.util.Log.d("RoomPlanner", "Canvas tapped:\nScreen Position: x=${offset.x}, y=${offset.y}\nWorld Position: x=$worldX, y=$worldY")
                                     viewModel.onCanvasPointerDown(Point2D(worldX, worldY))
-                                },
-                                onDrag = { _, _ -> },
-                                onDragEnd = { }
+                                }
                             )
                         }
                     }

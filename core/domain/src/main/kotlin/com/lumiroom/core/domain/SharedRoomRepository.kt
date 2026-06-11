@@ -86,7 +86,13 @@ class SharedRoomRepository @Inject constructor(
             WindowEntity(id = w.id, planId = model.planId, startX = w.startX, startY = w.startY, endX = w.endX, endY = w.endY, thicknessCm = w.thicknessCm)
         }
         val itemEntities = model.furniture.map { f ->
-            FloorPlanItemEntity(id = f.id, planId = model.planId, furnitureId = f.furnitureId, posX = f.positionX, posY = f.positionY, posZ = f.positionZ, rotation = f.rotation, scaleX = f.scaleX, scaleY = f.scaleY, scaleZ = f.scaleZ)
+            FloorPlanItemEntity(
+                id = f.id, planId = model.planId, furnitureId = f.furnitureId, 
+                posX = f.positionX, posY = f.positionY, posZ = f.positionZ, 
+                rotation = f.rotation, scaleX = f.scaleX, scaleY = f.scaleY, scaleZ = f.scaleZ,
+                initPosX = f.initialPositionX, initPosY = f.initialPositionY, initPosZ = f.initialPositionZ,
+                initRotation = f.initialRotation, initScaleX = f.initialScaleX, initScaleY = f.initialScaleY, initScaleZ = f.initialScaleZ
+            )
         }
         
         roomPlanDao.saveFullPlan(plan, wallEntities, itemEntities, doorEntities, windowEntities)
@@ -182,6 +188,13 @@ class SharedRoomRepository @Inject constructor(
                     scaleX = it.item.scaleX,
                     scaleY = it.item.scaleY,
                     scaleZ = it.item.scaleZ,
+                    initialPositionX = it.item.initPosX,
+                    initialPositionY = it.item.initPosY,
+                    initialPositionZ = it.item.initPosZ,
+                    initialRotation = it.item.initRotation,
+                    initialScaleX = it.item.initScaleX,
+                    initialScaleY = it.item.initScaleY,
+                    initialScaleZ = it.item.initScaleZ,
                     widthCm = (it.furniture.width ?: 1.0f) * 100f,
                     depthCm = (it.furniture.depth ?: 1.0f) * 100f,
                     heightCm = (it.furniture.height ?: 1.0f) * 100f,

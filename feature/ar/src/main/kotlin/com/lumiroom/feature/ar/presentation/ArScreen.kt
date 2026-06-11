@@ -327,11 +327,10 @@ fun ArScreen(
                         touchState.y = e.y
 
                         val transformNode = transformNodesMap[selectedId] ?: return
-                        val rotY = dev.romainguy.kotlin.math.Quaternion.fromAxisAngle(dev.romainguy.kotlin.math.Float3(0f, 1f, 0f), dx * 0.5f)
-                        transformNode.quaternion = transformNode.quaternion * rotY
+                        val newYaw = transformNode.rotation.y - dx * 0.5f
+                        transformNode.rotation = io.github.sceneview.math.Rotation(0f, newYaw, 0f)
                         
-                        val euler = dev.romainguy.kotlin.math.eulerAngles(transformNode.quaternion)
-                        val degrees = Math.toDegrees(euler.y.toDouble()).toInt()
+                        val degrees = newYaw.toInt()
                         val normalizedDegrees = ((degrees % 360) + 360) % 360
                         activeRotationText = "$normalizedDegrees°"
                         return
@@ -394,7 +393,7 @@ fun ArScreen(
                                 posX = baseNode.worldPosition.x,
                                 posY = baseNode.worldPosition.y,
                                 posZ = baseNode.worldPosition.z,
-                                rotX = 0f, rotY = Math.toDegrees(dev.romainguy.kotlin.math.eulerAngles(transformNode.quaternion).y.toDouble()).toFloat(), rotZ = 0f, rotW = 1f,
+                                rotX = 0f, rotY = transformNode.rotation.y, rotZ = 0f, rotW = 1f,
                                 scaleX = transformNode.scale.x, scaleY = transformNode.scale.y, scaleZ = transformNode.scale.z,
                                 matrixJson = ""
                             )
@@ -410,7 +409,7 @@ fun ArScreen(
                             posX = baseNode.worldPosition.x,
                             posY = baseNode.worldPosition.y,
                             posZ = baseNode.worldPosition.z,
-                            rotX = 0f, rotY = Math.toDegrees(dev.romainguy.kotlin.math.eulerAngles(transformNode.quaternion).y.toDouble()).toFloat(), rotZ = 0f, rotW = 1f,
+                            rotX = 0f, rotY = transformNode.rotation.y, rotZ = 0f, rotW = 1f,
                             scaleX = transformNode.scale.x, scaleY = transformNode.scale.y, scaleZ = transformNode.scale.z,
                             matrixJson = ""
                         )
@@ -451,7 +450,7 @@ fun ArScreen(
                         posX = baseNode.worldPosition.x,
                         posY = baseNode.worldPosition.y,
                         posZ = baseNode.worldPosition.z,
-                        rotX = 0f, rotY = Math.toDegrees(dev.romainguy.kotlin.math.eulerAngles(transformNode.quaternion).y.toDouble()).toFloat(), rotZ = 0f, rotW = 1f,
+                        rotX = 0f, rotY = transformNode.rotation.y, rotZ = 0f, rotW = 1f,
                         scaleX = transformNode.scale.x, scaleY = transformNode.scale.y, scaleZ = transformNode.scale.z,
                         matrixJson = ""
                     )
@@ -855,21 +854,25 @@ fun FurnitureDetailsPanel(
         elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
-            Text(furniture.name, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-            Text(furniture.category, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.primary)
+            val name = furniture.name.takeIf { it.isNotBlank() } ?: "Unknown Item"
+            val category = furniture.category.takeIf { it.isNotBlank() } ?: "Uncategorized"
+            val formattedCategory = category.replaceFirstChar { if (it.isLowerCase()) it.titlecase(java.util.Locale.getDefault()) else it.toString() }
+
+            Text(name, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+            Text(formattedCategory, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.primary)
             Spacer(modifier = Modifier.height(8.dp))
             
             Text("Dimensions", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            Text("${furniture.widthCm}W × ${furniture.heightCm}H × ${furniture.depthCm}D", style = MaterialTheme.typography.bodySmall)
+            
+            val w = if (furniture.widthCm >= 100f) String.format("%.2fm", furniture.widthCm / 100f) else String.format("%.0fcm", furniture.widthCm)
+            val h = if (furniture.heightCm >= 100f) String.format("%.2fm", furniture.heightCm / 100f) else String.format("%.0fcm", furniture.heightCm)
+            val d = if (furniture.depthCm >= 100f) String.format("%.2fm", furniture.depthCm / 100f) else String.format("%.0fcm", furniture.depthCm)
+
+            Text("${w} W × ${h} H × ${d} D", style = MaterialTheme.typography.bodySmall)
             
             Spacer(modifier = Modifier.height(8.dp))
             Text("Est. Price", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            Text("₹${furniture.priceEstimate ?: "N/A"}", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold)
-            
-            if ("" != null) {
-                Spacer(modifier = Modifier.height(8.dp))
-                AssistChip(onClick = {}, label = { Text(""!!) })
-            }
+            Text(if (furniture.priceEstimate != null) "₹${String.format("%.0f", furniture.priceEstimate)}" else "N/A", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold)
         }
     }
 }

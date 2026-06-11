@@ -22,10 +22,15 @@ class CommandParser @Inject constructor() {
     private val selectPattern = Regex("""select\s+(?:a\s+)?(?:the\s+)?(.+)""")
 
     // Manipulation
-    private val rotatePattern = Regex("""rotate\s+(left|right)(?:\s+(\d+)\s*(?:degrees?)?)?""")
+    // Manipulation
+    private val rotateAbsolutePattern = Regex("""rotate\s+(?:it\s+)?to\s+(\d+)\s*(?:degrees?)?""")
+    private val rotatePattern = Regex("""rotate\s+(?:it\s+)?(?:left|right|clockwise|counter\s*clockwise)?\s*(?:by\s+)?(\d+)\s*(?:degrees?)?""")
+    private val rotateSimplePattern = Regex("""rotate\s+(left|right)""")
+    private val scaleAbsolutePattern = Regex("""scale\s+(?:it\s+)?to\s+(\d+(?:\.\d+)?)(?:%)?""")
+    private val scaleRelativePattern = Regex("""(?:increase|decrease|increase\s+size\s+by|decrease\s+size\s+by)\s+(?:it\s+)?(?:by\s+)?(\d+(?:\.\d+)?)(?:%)?""")
     private val scaleUpPattern = Regex("""(?:scale|make|size)\s+(?:it\s+)?(?:up|bigger|larger)""")
     private val scaleDownPattern = Regex("""(?:scale|make|size)\s+(?:it\s+)?(?:down|smaller)""")
-    private val movePattern = Regex("""move\s+(forward|backward|left|right)""")
+    private val movePattern = Regex("""move\s+(?:the\s+)?(?:[a-zA-Z]+\s+)?(forward|backward|left|right)""")
 
     // Editing
     private val deleteSelectedPattern = Regex("""(?:delete|remove)\s+(?:selected|it)""")
@@ -104,16 +109,40 @@ class CommandParser @Inject constructor() {
         }
 
         // Manipulation
-        scaleUpPattern.find(normalized)?.let { return VoiceCommand.Scale(factor = 1.1f) }
-        scaleDownPattern.find(normalized)?.let { return VoiceCommand.Scale(factor = 0.9f) }
+        scaleAbsolutePattern.find(normalized)?.let { match ->
+            val percent = match.groupValues[1].toFloatOrNull() ?: 100f
+            return VoiceCommand.ScaleAbsolute(percent / 100f)
+        }
+        scaleRelativePattern.find(normalized)?.let { match ->
+            val amountStr = match.groupValues[1]
+            val isDecrease = normalized.contains("decrease")
+            val amount = amountStr.toFloatOrNull() ?: 10f
+            // Relative amount (e.g. 10% = 0.1)
+            val delta = amount / 100f
+            val factor = if (isDecrease) -delta else delta
+            return VoiceCommand.ScaleRelative(factor)
+        }
+        scaleUpPattern.find(normalized)?.let { return VoiceCommand.ScaleRelative(0.1f) }
+        scaleDownPattern.find(normalized)?.let { return VoiceCommand.ScaleRelative(-0.1f) }
+        
         movePattern.find(normalized)?.let { match ->
             return VoiceCommand.Move(match.groupValues[1].trim())
         }
+        
+        rotateAbsolutePattern.find(normalized)?.let { match ->
+            val degrees = match.groupValues[1].toFloatOrNull() ?: 0f
+            return VoiceCommand.RotateAbsolute(degrees)
+        }
         rotatePattern.find(normalized)?.let { match ->
+            val degrees = match.groupValues[1].toFloatOrNull() ?: 15f
+            val isLeft = normalized.contains("left") || normalized.contains("counter")
+            val angle = if (isLeft) -degrees else degrees
+            return VoiceCommand.RotateRelative(angle)
+        }
+        rotateSimplePattern.find(normalized)?.let { match ->
             val direction = match.groupValues[1]
-            val degrees = match.groupValues[2].takeIf { it.isNotEmpty() }?.toFloatOrNull() ?: 15f
-            val angle = if (direction == "left") -degrees else degrees
-            return VoiceCommand.Rotate(degrees = angle)
+            val angle = if (direction == "left") -15f else 15f
+            return VoiceCommand.RotateRelative(angle)
         }
 
         // Selection
@@ -159,8 +188,10 @@ sealed class VoiceCommand {
     object SelectLast : VoiceCommand()
     object Deselect : VoiceCommand()
 
-    data class Rotate(val degrees: Float) : VoiceCommand()
-    data class Scale(val factor: Float) : VoiceCommand()
+    data class RotateRelative(val degrees: Float) : VoiceCommand()
+    data class RotateAbsolute(val degrees: Float) : VoiceCommand()
+    data class ScaleRelative(val delta: Float) : VoiceCommand()
+    data class ScaleAbsolute(val percent: Float) : VoiceCommand()
     data class Move(val direction: String) : VoiceCommand()
 
     object DeleteSelected : VoiceCommand()
