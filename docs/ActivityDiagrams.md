@@ -1,14 +1,107 @@
 # Activity Diagrams
 
 **Project:** Lumiroom: AI-Assisted Mobile AR Furniture Visualization and Interior Planning System  
-**Version:** 1.0  
-**Date:** 2026-06-10  
+**Version:** 2.0  
 
-[⬅ Back to README](../README.md) | [Next: Deployment Diagrams](DeploymentDiagrams.md)
+[⬅ Back to State Machine Diagrams](StateMachineDiagrams.md) | [Next: Data Flow Diagrams](DataFlowDiagrams.md)
 
 ---
 
-## 1. Voice Command Resolution Activity
+## 1. Furniture Placement Activity
+
+```mermaid
+flowchart TD
+    A([Start Placement]) --> B{Is Source 2D or AR?}
+    B -- AR --> C[Tap on screen]
+    C --> D[ARCore HitTest]
+    D --> E{Plane Found?}
+    E -- no --> C
+    
+    B -- 2D --> F[Drag from Catalog]
+    F --> G[Drop on Canvas]
+    
+    E -- yes --> H[Calculate World Position]
+    G --> H
+    
+    H --> I[RoomStateManager.dispatch(AddItem)]
+    I --> J[Generate UUID]
+    J --> K[Mutate RoomState]
+    K --> L[Emit StateFlow]
+    L --> M([End])
+```
+
+---
+
+## 2. Save Workflow (Autosave)
+
+```mermaid
+flowchart TD
+    A([RoomState mutated]) --> B[LayoutPersistenceManager observes]
+    B --> C[Start 2000ms Debounce]
+    
+    C --> D{New mutation during debounce?}
+    D -- yes --> C
+    D -- no --> E[Convert RoomState to RoomModel]
+    
+    E --> F[SharedRoomRepository.saveRoomSnapshot]
+    F --> G[Room Database UPSERT]
+    
+    G --> H([End])
+```
+
+---
+
+## 3. Delete Workflow
+
+```mermaid
+flowchart TD
+    A([User taps Delete]) --> B{Item selected?}
+    B -- no --> Z([End])
+    
+    B -- yes --> C[RoomStateManager.dispatch(RemoveItem)]
+    C --> D[Snapshot Current State to History]
+    D --> E[Filter items list]
+    E --> F[Clear SelectionState]
+    F --> G[Emit new RoomState]
+    G --> Z
+```
+
+---
+
+## 4. Room Creation
+
+```mermaid
+flowchart TD
+    A([Tap New Room]) --> B[Prompt for Room Name]
+    B --> C[Generate Room UUID]
+    C --> D[Create empty RoomEntity]
+    D --> E[Insert to Room Database]
+    E --> F[Navigate to Planner/AR]
+    F --> G[Initialize RoomStateManager]
+    G --> H([End])
+```
+
+---
+
+## 5. Undo / Redo
+
+```mermaid
+flowchart TD
+    A([Tap Undo]) --> B[RoomStateManager.dispatch(Undo)]
+    B --> C[UndoRedoManager.popPrevious()]
+    C --> D{History Empty?}
+    
+    D -- yes --> Z([Ignore])
+    
+    D -- no --> E[Push current to Redo stack]
+    E --> F[Set RoomState = previous]
+    F --> G[Emit StateFlow]
+    G --> Z
+```
+
+---
+
+## 6. Voice Command Resolution Activity
 
 Details the internal logic of the fuzzy-matching NLP parser.
 
@@ -38,26 +131,4 @@ flowchart TD
     L --> Z
     N --> Z
     O --> Z
-```
-
-## 2. FMP Batch Processing Activity
-
-Details the workflow of the Python automation script used by developers.
-
-```mermaid
-flowchart TD
-    A([Start]) --> B[Scan /raw_fmp_files directory]
-    B --> C{More FBX files?}
-    C -- yes --> D[Load into Blender]
-    D --> E[Reset Origin to Bottom-Center]
-    E --> F[Apply Transformations]
-    F --> G{Polygons > 50,000?}
-    G -- yes --> H[Apply Decimate Modifier]
-    G -- no --> I[Export as GLB]
-    H --> I
-    I --> J[Render 512x512 WebP Thumbnail]
-    J --> C
-    
-    C -- no --> K[Upload batch to Firebase Storage]
-    K --> Z([Stop])
 ```

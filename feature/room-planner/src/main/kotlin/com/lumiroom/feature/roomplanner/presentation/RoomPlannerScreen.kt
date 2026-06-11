@@ -10,12 +10,22 @@ import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.calculatePan
 import androidx.compose.foundation.gestures.calculateZoom
+import androidx.compose.foundation.gestures.calculateCentroid
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.Undo
+import androidx.compose.material.icons.automirrored.filled.Redo
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.Share
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.ViewInAr
+import androidx.compose.material.icons.filled.KeyboardArrowUp
+import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.KeyboardArrowLeft
+import androidx.compose.material.icons.filled.KeyboardArrowRight
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -42,6 +52,13 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.rememberModalBottomSheetState
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.material3.ElevatedCard
+import coil.compose.AsyncImage
 import com.lumiroom.feature.roomplanner.domain.geometry.Point2D
 import kotlin.math.roundToInt
 
@@ -66,68 +83,94 @@ fun RoomPlannerScreen(
                     }
                 },
                 actions = {
-                    TextButton(onClick = { viewModel.undo() }, enabled = uiState.canUndo) {
-                        Text("Undo")
+                    IconButton(onClick = { viewModel.undo() }, enabled = uiState.canUndo) {
+                        Icon(Icons.AutoMirrored.Filled.Undo, contentDescription = "Undo")
                     }
-                    TextButton(onClick = { viewModel.redo() }, enabled = uiState.canRedo) {
-                        Text("Redo")
+                    IconButton(onClick = { viewModel.redo() }, enabled = uiState.canRedo) {
+                        Icon(Icons.AutoMirrored.Filled.Redo, contentDescription = "Redo")
                     }
-                    TextButton(onClick = { viewModel.exportToBitmap(context) }) {
-                        Text("Export")
+                    IconButton(onClick = { viewModel.exportToBitmap(context) }) {
+                        Icon(Icons.Filled.Share, contentDescription = "Export")
                     }
-                    TextButton(onClick = { viewModel.savePlan() }) {
-                        Text("Save")
+                    IconButton(onClick = { viewModel.savePlan() }) {
+                        Icon(Icons.Filled.Check, contentDescription = "Save")
                     }
-                    TextButton(onClick = onNavigateToAr) {
-                        Text("AR View")
+                    IconButton(onClick = onNavigateToAr) {
+                        Icon(Icons.Filled.ViewInAr, contentDescription = "AR View")
                     }
                 }
             )
         },
         bottomBar = {
-            BottomAppBar {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .horizontalScroll(rememberScrollState())
-                        .padding(horizontal = 8.dp),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    FilterChip(
-                        selected = uiState.mode == InteractionMode.SELECT,
-                        onClick = { viewModel.setInteractionMode(InteractionMode.SELECT) },
-                        label = { Text("Select") }
-                    )
-                    FilterChip(
-                        selected = uiState.mode == InteractionMode.DRAW_WALL,
-                        onClick = { viewModel.setInteractionMode(InteractionMode.DRAW_WALL) },
-                        label = { Text("Draw Wall") }
-                    )
-                    FilterChip(
-                        selected = uiState.mode == InteractionMode.PLACE_FURNITURE,
-                        onClick = { viewModel.setInteractionMode(InteractionMode.PLACE_FURNITURE) },
-                        label = { Text("Furniture") }
-                    )
-                    FilterChip(
-                        selected = uiState.mode == InteractionMode.DRAW_DOOR,
-                        onClick = { viewModel.setInteractionMode(InteractionMode.DRAW_DOOR) },
-                        label = { Text("Door") }
-                    )
-                    FilterChip(
-                        selected = uiState.mode == InteractionMode.DRAW_WINDOW,
-                        onClick = { viewModel.setInteractionMode(InteractionMode.DRAW_WINDOW) },
-                        label = { Text("Window") }
-                    )
-                    FilterChip(
-                        selected = uiState.mode == InteractionMode.MEASURE,
-                        onClick = { viewModel.setInteractionMode(InteractionMode.MEASURE) },
-                        label = { Text("Measure") }
-                    )
-                    FilterChip(
-                        selected = uiState.mode == InteractionMode.REMOVE,
-                        onClick = { viewModel.setInteractionMode(InteractionMode.REMOVE) },
-                        label = { Text("Remove") }
-                    )
+            BottomAppBar(modifier = Modifier.height(112.dp)) {
+                Column(modifier = Modifier.fillMaxWidth()) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .horizontalScroll(rememberScrollState())
+                            .padding(horizontal = 8.dp),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        FilterChip(
+                            selected = uiState.mode == InteractionMode.SELECT,
+                            onClick = { viewModel.setInteractionMode(InteractionMode.SELECT) },
+                            label = { Text("Select") }
+                        )
+                        FilterChip(
+                            selected = uiState.mode == InteractionMode.DRAW_WALL,
+                            onClick = { viewModel.setInteractionMode(InteractionMode.DRAW_WALL) },
+                            label = { Text("Draw Wall") }
+                        )
+                        FilterChip(
+                            selected = uiState.mode == InteractionMode.PLACE_FURNITURE,
+                            onClick = { viewModel.setInteractionMode(InteractionMode.PLACE_FURNITURE) },
+                            label = { Text("Furniture") }
+                        )
+                        FilterChip(
+                            selected = uiState.mode == InteractionMode.DRAW_DOOR,
+                            onClick = { viewModel.setInteractionMode(InteractionMode.DRAW_DOOR) },
+                            label = { Text("Door") }
+                        )
+                        FilterChip(
+                            selected = uiState.mode == InteractionMode.DRAW_WINDOW,
+                            onClick = { viewModel.setInteractionMode(InteractionMode.DRAW_WINDOW) },
+                            label = { Text("Window") }
+                        )
+                        FilterChip(
+                            selected = uiState.mode == InteractionMode.MEASURE,
+                            onClick = { viewModel.setInteractionMode(InteractionMode.MEASURE) },
+                            label = { Text("Measure") }
+                        )
+                        FilterChip(
+                            selected = uiState.mode == InteractionMode.REMOVE,
+                            onClick = { viewModel.setInteractionMode(InteractionMode.REMOVE) },
+                            label = { Text("Remove") }
+                        )
+                    }
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .horizontalScroll(rememberScrollState())
+                            .padding(horizontal = 8.dp),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Text("Layers:", modifier = Modifier.align(androidx.compose.ui.Alignment.CenterVertically))
+                        FilterChip(
+                            selected = RoomLayer.STRUCTURAL in uiState.visibleLayers,
+                            onClick = { viewModel.toggleLayer(RoomLayer.STRUCTURAL) },
+                            label = { Text("Walls/Doors") }
+                        )
+                        FilterChip(
+                            selected = RoomLayer.FURNITURE in uiState.visibleLayers,
+                            onClick = { viewModel.toggleLayer(RoomLayer.FURNITURE) },
+                            label = { Text("Furniture") }
+                        )
+                        FilterChip(
+                            selected = RoomLayer.LABELS in uiState.visibleLayers,
+                            onClick = { viewModel.toggleLayer(RoomLayer.LABELS) },
+                            label = { Text("Labels") }
+                        )
+                    }
                 }
             }
         }
@@ -187,13 +230,19 @@ fun RoomPlannerScreen(
                                                 change.consume()
                                             }
                                         } else {
+                                            val centroid = event.calculateCentroid(useCurrent = false)
                                             val zoomChange = event.calculateZoom()
                                             val panChange = event.calculatePan()
                                             if (zoomChange != 1f || panChange != Offset.Zero) {
+                                                val newZoom = (latestState.zoom * zoomChange).coerceIn(0.1f, 5f)
+                                                val actualZoomChange = newZoom / latestState.zoom
+                                                val newPanX = (latestState.panX + panChange.x - centroid.x) * actualZoomChange + centroid.x
+                                                val newPanY = (latestState.panY + panChange.y - centroid.y) * actualZoomChange + centroid.y
+                                                
                                                 viewModel.updateTransform(
-                                                    panX = latestState.panX + panChange.x,
-                                                    panY = latestState.panY + panChange.y,
-                                                    zoom = (latestState.zoom * zoomChange).coerceIn(0.1f, 5f)
+                                                    panX = newPanX,
+                                                    panY = newPanY,
+                                                    zoom = newZoom
                                                 )
                                                 event.changes.forEach { it.consume() }
                                             }
@@ -258,106 +307,185 @@ fun RoomPlannerScreen(
                     }
 
                     // Draw completed walls
-                    for (wall in uiState.walls) {
-                        drawLine(
-                            color = Color.DarkGray,
-                            start = Offset(wall.segment.start.x, wall.segment.start.y),
-                            end = Offset(wall.segment.end.x, wall.segment.end.y),
-                            strokeWidth = wall.thicknessCm,
-                            cap = StrokeCap.Round
-                        )
-                    }
-
-                    // Draw completed doors
-                    for (door in uiState.doors) {
-                        drawLine(
-                            color = Color.Cyan,
-                            start = Offset(door.segment.start.x, door.segment.start.y),
-                            end = Offset(door.segment.end.x, door.segment.end.y),
-                            strokeWidth = door.thicknessCm,
-                            cap = StrokeCap.Round
-                        )
-                    }
-
-                    // Draw completed windows
-                    for (window in uiState.windows) {
-                        drawLine(
-                            color = Color.LightGray,
-                            start = Offset(window.segment.start.x, window.segment.start.y),
-                            end = Offset(window.segment.end.x, window.segment.end.y),
-                            strokeWidth = window.thicknessCm,
-                            cap = StrokeCap.Round
-                        )
-                    }
-
-                    // Draw current drawing action
-                    val startPt = uiState.currentDrawingStartPoint
-                    val endPt = uiState.currentDrawingEndPoint
-                    if (startPt != null && endPt != null) {
-                        val color = when(uiState.mode) {
-                            InteractionMode.DRAW_WALL -> Color.Blue.copy(alpha = 0.7f)
-                            InteractionMode.DRAW_DOOR -> Color.Cyan.copy(alpha = 0.7f)
-                            InteractionMode.DRAW_WINDOW -> Color.LightGray.copy(alpha = 0.7f)
-                            InteractionMode.MEASURE -> Color.Red
-                            else -> Color.Blue.copy(alpha = 0.7f)
+                    if (RoomLayer.STRUCTURAL in uiState.visibleLayers) {
+                        for (wall in uiState.walls) {
+                            drawLine(
+                                color = Color.DarkGray,
+                                start = Offset(wall.segment.start.x, wall.segment.start.y),
+                                end = Offset(wall.segment.end.x, wall.segment.end.y),
+                                strokeWidth = wall.thicknessCm,
+                                cap = StrokeCap.Round
+                            )
                         }
-                        drawLine(
-                            color = color,
-                            start = Offset(startPt.x, startPt.y),
-                            end = Offset(endPt.x, endPt.y),
-                            strokeWidth = if (uiState.mode == InteractionMode.MEASURE) 5f else 10f,
-                            cap = StrokeCap.Round
-                        )
-                        if (uiState.mode == InteractionMode.MEASURE) {
-                            val distanceCm = startPt.distanceTo(endPt)
-                            val text = "${distanceCm.roundToInt()} cm"
-                            drawIntoCanvas { canvas ->
-                                val paint = android.graphics.Paint().apply {
-                                    textSize = 40f / uiState.zoom
-                                    setColor(android.graphics.Color.RED)
-                                    textAlign = android.graphics.Paint.Align.CENTER
+
+                        // Draw completed doors
+                        for (door in uiState.doors) {
+                            drawLine(
+                                color = Color.Cyan,
+                                start = Offset(door.segment.start.x, door.segment.start.y),
+                                end = Offset(door.segment.end.x, door.segment.end.y),
+                                strokeWidth = door.thicknessCm,
+                                cap = StrokeCap.Round
+                            )
+                        }
+
+                        // Draw completed windows
+                        for (window in uiState.windows) {
+                            drawLine(
+                                color = Color.LightGray,
+                                start = Offset(window.segment.start.x, window.segment.start.y),
+                                end = Offset(window.segment.end.x, window.segment.end.y),
+                                strokeWidth = window.thicknessCm,
+                                cap = StrokeCap.Round
+                            )
+                        }
+                    }
+
+                    if (RoomLayer.LABELS in uiState.visibleLayers) {
+                        // Draw current drawing action
+                        val startPt = uiState.currentDrawingStartPoint
+                        val endPt = uiState.currentDrawingEndPoint
+                        if (startPt != null && endPt != null) {
+                            val color = when(uiState.mode) {
+                                InteractionMode.DRAW_WALL -> Color.Blue.copy(alpha = 0.7f)
+                                InteractionMode.DRAW_DOOR -> Color.Cyan.copy(alpha = 0.7f)
+                                InteractionMode.DRAW_WINDOW -> Color.LightGray.copy(alpha = 0.7f)
+                                InteractionMode.MEASURE -> Color.Red
+                                else -> Color.Blue.copy(alpha = 0.7f)
+                            }
+                            drawLine(
+                                color = color,
+                                start = Offset(startPt.x, startPt.y),
+                                end = Offset(endPt.x, endPt.y),
+                                strokeWidth = if (uiState.mode == InteractionMode.MEASURE) 5f else 10f,
+                                cap = StrokeCap.Round
+                            )
+                            if (uiState.mode == InteractionMode.MEASURE) {
+                                val distanceCm = startPt.distanceTo(endPt)
+                                val text = "${distanceCm.roundToInt()} cm"
+                                drawIntoCanvas { canvas ->
+                                    val paint = android.graphics.Paint().apply {
+                                        textSize = 40f / uiState.zoom
+                                        setColor(android.graphics.Color.RED)
+                                        textAlign = android.graphics.Paint.Align.CENTER
+                                    }
+                                    canvas.nativeCanvas.drawText(
+                                        text,
+                                        (startPt.x + endPt.x) / 2f,
+                                        (startPt.y + endPt.y) / 2f - (20f / uiState.zoom),
+                                        paint
+                                    )
                                 }
-                                canvas.nativeCanvas.drawText(
-                                    text,
-                                    (startPt.x + endPt.x) / 2f,
-                                    (startPt.y + endPt.y) / 2f - (20f / uiState.zoom),
-                                    paint
-                                )
                             }
                         }
                     }
 
                     // Draw Placed Furniture
-                    for (f in uiState.furniture.sortedBy { it.zIndex }) {
-                        withTransform({
-                            translate(f.position.x, f.position.y)
-                            rotate(f.rotation)
-                            scale(f.scale, f.scale)
-                        }) {
-                            val isFocused = f.id == uiState.focusedPlacedFurnitureId
-                            val fillColor = if (f.hasCollision) Color(0xFFFFCDD2) else if (isFocused) Color(0xFFE3F2FD) else Color(0xFFB0BEC5)
-                            val outlineColor = if (f.hasCollision) Color.Red else Color.Blue
-                            
-                            drawRect(
-                                color = fillColor,
-                                topLeft = Offset(-f.widthCm/2, -f.depthCm/2),
-                                size = androidx.compose.ui.geometry.Size(f.widthCm, f.depthCm)
-                            )
-                            
-                            if (isFocused || f.hasCollision) {
-                                // Draw bounding box outline
+                    if (RoomLayer.FURNITURE in uiState.visibleLayers) {
+                        for (f in uiState.furniture.sortedBy { it.zIndex }) {
+                            withTransform({
+                                translate(f.position.x, f.position.y)
+                                rotate(f.rotation)
+                                scale(f.scale, f.scale)
+                            }) {
+                                val isFocused = uiState.focusedPlacedFurnitureIds.contains(f.id)
+                                val baseColor = Color(f.colorHex)
+                                val fillColor = if (f.hasCollision) Color(0xFFFFCDD2) else baseColor
+                                val outlineColor = if (f.hasCollision) Color.Red else Color(0xFF007AFF) // iOS style blue
+                                
+                                // Selection Halo
+                                if (isFocused) {
+                                    drawRect(
+                                        color = outlineColor.copy(alpha = 0.3f),
+                                        topLeft = Offset(-f.widthCm/2 - 4f / uiState.zoom, -f.depthCm/2 - 4f / uiState.zoom),
+                                        size = androidx.compose.ui.geometry.Size(f.widthCm + 8f / uiState.zoom, f.depthCm + 8f / uiState.zoom)
+                                    )
+                                }
+
                                 drawRect(
-                                    color = outlineColor,
+                                    color = fillColor,
                                     topLeft = Offset(-f.widthCm/2, -f.depthCm/2),
-                                    size = androidx.compose.ui.geometry.Size(f.widthCm, f.depthCm),
-                                    style = Stroke(width = 2f / uiState.zoom)
+                                    size = androidx.compose.ui.geometry.Size(f.widthCm, f.depthCm)
                                 )
-                                // Draw corner handles
-                                val handleRadius = 5f / uiState.zoom
-                                drawCircle(outlineColor, radius = handleRadius, center = Offset(-f.widthCm/2, -f.depthCm/2))
-                                drawCircle(outlineColor, radius = handleRadius, center = Offset(f.widthCm/2, -f.depthCm/2))
-                                drawCircle(outlineColor, radius = handleRadius, center = Offset(-f.widthCm/2, f.depthCm/2))
-                                drawCircle(outlineColor, radius = handleRadius, center = Offset(f.widthCm/2, f.depthCm/2))
+                                
+                                if (isFocused || f.hasCollision) {
+                                    // Draw bounding box outline
+                                    drawRect(
+                                        color = outlineColor,
+                                        topLeft = Offset(-f.widthCm/2, -f.depthCm/2),
+                                        size = androidx.compose.ui.geometry.Size(f.widthCm, f.depthCm),
+                                        style = Stroke(width = 3f / uiState.zoom)
+                                    )
+                                    // Draw corner handles
+                                    val handleRadius = 6f / uiState.zoom
+                                    drawCircle(outlineColor, radius = handleRadius, center = Offset(-f.widthCm/2, -f.depthCm/2))
+                                    drawCircle(outlineColor, radius = handleRadius, center = Offset(f.widthCm/2, -f.depthCm/2))
+                                    drawCircle(outlineColor, radius = handleRadius, center = Offset(-f.widthCm/2, f.depthCm/2))
+                                    drawCircle(outlineColor, radius = handleRadius, center = Offset(f.widthCm/2, f.depthCm/2))
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            
+            // Minimap Overlay
+            if (uiState.walls.isNotEmpty() || uiState.furniture.isNotEmpty()) {
+                val allXs = uiState.walls.flatMap { listOf(it.segment.start.x, it.segment.end.x) } + uiState.furniture.map { it.position.x }
+                val allYs = uiState.walls.flatMap { listOf(it.segment.start.y, it.segment.end.y) } + uiState.furniture.map { it.position.y }
+                val minX = allXs.minOrNull() ?: 0f
+                val maxX = allXs.maxOrNull() ?: 100f
+                val minY = allYs.minOrNull() ?: 0f
+                val maxY = allYs.maxOrNull() ?: 100f
+                val roomWidth = maxOf(maxX - minX, 100f) * 1.2f
+                val roomHeight = maxOf(maxY - minY, 100f) * 1.2f
+                val cx = (minX + maxX) / 2f
+                val cy = (minY + maxY) / 2f
+
+                androidx.compose.material3.Card(
+                    modifier = Modifier
+                        .align(Alignment.BottomEnd)
+                        .padding(16.dp)
+                        .size(120.dp),
+                    elevation = androidx.compose.material3.CardDefaults.cardElevation(defaultElevation = 4.dp),
+                    colors = androidx.compose.material3.CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.9f))
+                ) {
+                    Canvas(modifier = Modifier.fillMaxSize().padding(8.dp)) {
+                        val scaleX = size.width / roomWidth
+                        val scaleY = size.height / roomHeight
+                        val scale = minOf(scaleX, scaleY)
+
+                        withTransform({
+                            translate(size.width / 2f, size.height / 2f)
+                            scale(scale, scale)
+                            translate(-cx, -cy)
+                        }) {
+                            for (wall in uiState.walls) {
+                                drawLine(
+                                    color = Color.DarkGray,
+                                    start = Offset(wall.segment.start.x, wall.segment.start.y),
+                                    end = Offset(wall.segment.end.x, wall.segment.end.y),
+                                    strokeWidth = maxOf(wall.thicknessCm, 2f / scale),
+                                    cap = StrokeCap.Round
+                                )
+                            }
+                            for (door in uiState.doors) {
+                                drawLine(
+                                    color = Color.Cyan,
+                                    start = Offset(door.segment.start.x, door.segment.start.y),
+                                    end = Offset(door.segment.end.x, door.segment.end.y),
+                                    strokeWidth = maxOf(door.thicknessCm, 2f / scale),
+                                    cap = StrokeCap.Round
+                                )
+                            }
+                            for (window in uiState.windows) {
+                                drawLine(
+                                    color = Color.LightGray,
+                                    start = Offset(window.segment.start.x, window.segment.start.y),
+                                    end = Offset(window.segment.end.x, window.segment.end.y),
+                                    strokeWidth = maxOf(window.thicknessCm, 2f / scale),
+                                    cap = StrokeCap.Round
+                                )
                             }
                         }
                     }
@@ -393,7 +521,7 @@ fun RoomPlannerScreen(
             }
             
             AnimatedVisibility(
-                visible = uiState.focusedPlacedFurnitureId != null,
+                visible = uiState.focusedPlacedFurnitureIds.isNotEmpty(),
                 modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 16.dp)
             ) {
                 Row(
@@ -402,33 +530,73 @@ fun RoomPlannerScreen(
                         .padding(8.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Button(onClick = { viewModel.rotateFocusedFurniture(-15f) }) { Text("⟲") }
-                    Spacer(Modifier.width(8.dp))
-                    Button(onClick = { viewModel.rotateFocusedFurniture(15f) }) { Text("⟳") }
-                    Spacer(Modifier.width(8.dp))
-                    Button(onClick = { viewModel.scaleFocusedFurniture(-0.1f) }) { Text("-") }
-                    Spacer(Modifier.width(8.dp))
-                    Button(onClick = { viewModel.scaleFocusedFurniture(0.1f) }) { Text("+") }
-                    Spacer(Modifier.width(8.dp))
-                    Button(onClick = { viewModel.bringFurnitureForward() }) { Text("↑") }
-                    Spacer(Modifier.width(8.dp))
-                    Button(onClick = { viewModel.sendFurnitureBackward() }) { Text("↓") }
-                    Spacer(Modifier.width(8.dp))
-                    Button(onClick = { viewModel.deleteFocusedItem() }, colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)) { Text("Delete") }
+                    // Joystick Control
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        IconButton(onClick = { viewModel.moveFocusedFurniture(0f, -5f) }) { Icon(Icons.Filled.KeyboardArrowUp, contentDescription = "Up") }
+                        Row {
+                            IconButton(onClick = { viewModel.moveFocusedFurniture(-5f, 0f) }) { Icon(Icons.Filled.KeyboardArrowLeft, contentDescription = "Left") }
+                            Spacer(Modifier.width(8.dp))
+                            IconButton(onClick = { viewModel.moveFocusedFurniture(5f, 0f) }) { Icon(Icons.Filled.KeyboardArrowRight, contentDescription = "Right") }
+                        }
+                        IconButton(onClick = { viewModel.moveFocusedFurniture(0f, 5f) }) { Icon(Icons.Filled.KeyboardArrowDown, contentDescription = "Down") }
+                    }
+                    
+                    Spacer(Modifier.width(16.dp))
+                    
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Button(onClick = { viewModel.rotateFocusedFurniture(-15f) }) { Text("↺") }
+                            Button(onClick = { viewModel.rotateFocusedFurniture(15f) }) { Text("↻") }
+                            Button(onClick = { viewModel.scaleFocusedFurniture(-0.1f) }) { Text("-") }
+                            Button(onClick = { viewModel.scaleFocusedFurniture(0.1f) }) { Text("+") }
+                        }
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Button(onClick = { viewModel.bringFurnitureForward() }) { Text("↑ Layer") }
+                            Button(onClick = { viewModel.sendFurnitureBackward() }) { Text("↓ Layer") }
+                            Button(onClick = { viewModel.deleteFocusedItem() }, colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)) { Text("Delete") }
+                        }
+                    }
                 }
             }
 
             // If in PLACE_FURNITURE mode and no item is selected, show catalog
             if (uiState.mode == InteractionMode.PLACE_FURNITURE && uiState.selectedFurnitureId == null) {
-                Box(modifier = Modifier.align(Alignment.BottomCenter).fillMaxWidth().padding(16.dp).background(Color.White, shape = MaterialTheme.shapes.medium)) {
+                val sheetState = rememberModalBottomSheetState()
+                ModalBottomSheet(
+                    onDismissRequest = { viewModel.setInteractionMode(InteractionMode.SELECT) },
+                    sheetState = sheetState
+                ) {
                     Column(modifier = Modifier.padding(16.dp)) {
                         Text("Select Furniture to Place", style = MaterialTheme.typography.titleMedium)
-                        Spacer(modifier = Modifier.height(8.dp))
-                        // Display simple list
-                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            for (item in catalog.take(3)) {
-                                Button(onClick = { viewModel.selectFurnitureFromCatalog(item.id) }) {
-                                    Text(item.name)
+                        Spacer(modifier = Modifier.height(16.dp))
+                        LazyVerticalGrid(
+                            columns = GridCells.Adaptive(minSize = 100.dp),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp),
+                            modifier = Modifier.fillMaxWidth().heightIn(max = 400.dp)
+                        ) {
+                            items(catalog) { item ->
+                                ElevatedCard(
+                                    onClick = { viewModel.selectFurnitureFromCatalog(item.id) },
+                                    modifier = Modifier.fillMaxWidth().aspectRatio(1f)
+                                ) {
+                                    Column(
+                                        modifier = Modifier.padding(8.dp),
+                                        horizontalAlignment = Alignment.CenterHorizontally,
+                                        verticalArrangement = Arrangement.Center
+                                    ) {
+                                        if (item.thumbnailPath != null) {
+                                            AsyncImage(
+                                                model = item.thumbnailPath,
+                                                contentDescription = item.name,
+                                                modifier = Modifier.size(48.dp)
+                                            )
+                                        } else {
+                                            Icon(Icons.Filled.Add, contentDescription = null, modifier = Modifier.size(48.dp))
+                                        }
+                                        Spacer(modifier = Modifier.height(4.dp))
+                                        Text(item.name, style = MaterialTheme.typography.bodySmall, maxLines = 1)
+                                    }
                                 }
                             }
                         }

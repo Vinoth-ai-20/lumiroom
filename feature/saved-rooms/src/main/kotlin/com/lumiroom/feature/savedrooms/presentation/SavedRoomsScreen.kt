@@ -20,7 +20,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
-import com.lumiroom.core.database.entity.RoomDesignEntity
+import com.lumiroom.core.database.entity.RoomPlanEntity
+import com.lumiroom.core.ui.components.CreateRoomDialog
 import java.text.SimpleDateFormat
 import java.util.*
 
@@ -96,7 +97,7 @@ fun SavedRoomsScreen(
 
 @Composable
 fun RoomProjectCard(
-    room: RoomDesignEntity,
+    room: RoomPlanEntity,
     onClick: () -> Unit,
     onRename: (String) -> Unit,
     onDuplicate: () -> Unit,
@@ -209,70 +210,3 @@ fun RoomProjectCard(
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-fun CreateRoomDialog(
-    onDismiss: () -> Unit,
-    onCreate: (String, String) -> Unit
-) {
-    var name by remember { mutableStateOf("") }
-    val roomTypes = listOf("Living Room", "Bedroom", "Kitchen", "Office")
-    var selectedType by remember { mutableStateOf(roomTypes.first()) }
-    var typeExpanded by remember { mutableStateOf(false) }
-
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text("New Project") },
-        text = {
-            Column {
-                OutlinedTextField(
-                    value = name,
-                    onValueChange = { name = it },
-                    label = { Text("Room Name") },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth()
-                )
-                Spacer(modifier = Modifier.height(16.dp))
-                ExposedDropdownMenuBox(
-                    expanded = typeExpanded,
-                    onExpandedChange = { typeExpanded = !typeExpanded }
-                ) {
-                    OutlinedTextField(
-                        value = selectedType,
-                        onValueChange = {},
-                        readOnly = true,
-                        label = { Text("Room Type") },
-                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = typeExpanded) },
-                        modifier = Modifier.menuAnchor(MenuAnchorType.PrimaryNotEditable, true).fillMaxWidth()
-                    )
-                    ExposedDropdownMenu(
-                        expanded = typeExpanded,
-                        onDismissRequest = { typeExpanded = false }
-                    ) {
-                        roomTypes.forEach { type ->
-                            DropdownMenuItem(
-                                text = { Text(type) },
-                                onClick = {
-                                    selectedType = type
-                                    typeExpanded = false
-                                }
-                            )
-                        }
-                    }
-                }
-            }
-        },
-        confirmButton = {
-            Button(
-                onClick = { onCreate(if (name.isBlank()) "My $selectedType" else name, selectedType) }
-            ) {
-                Text("Create")
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text("Cancel")
-            }
-        }
-    )
-}

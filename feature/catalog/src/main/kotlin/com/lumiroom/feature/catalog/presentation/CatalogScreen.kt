@@ -13,6 +13,8 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.lumiroom.core.ui.components.FurnitureCard
 import com.lumiroom.core.ui.components.LoadingOverlay
+import com.lumiroom.core.ui.components.CreateRoomDialog
+import kotlinx.coroutines.launch
 
 private val CATEGORIES = listOf("All", "Favorites", "Sofas", "Chairs", "Tables", "Beds", "Cabinets", "Shelves", "Decor")
 
@@ -20,7 +22,7 @@ private val CATEGORIES = listOf("All", "Favorites", "Sofas", "Chairs", "Tables",
 @Composable
 fun CatalogScreen(
     onNavigateToDetail: (String) -> Unit,
-    onNavigateToAr: () -> Unit,
+    onNavigateToAr: (String?) -> Unit,
     onNavigateToSaved: () -> Unit,
     onNavigateToAi: () -> Unit,
     onNavigateToSettings: () -> Unit,
@@ -29,6 +31,8 @@ fun CatalogScreen(
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val furnitureList by viewModel.furniture.collectAsState()
+    var showCreateDialog by remember { mutableStateOf(false) }
+    val coroutineScope = rememberCoroutineScope()
 
     Scaffold(
         topBar = {
@@ -63,7 +67,7 @@ fun CatalogScreen(
                 )
                 NavigationBarItem(
                     selected = false,
-                    onClick = onNavigateToAr,
+                    onClick = { showCreateDialog = true },
                     icon = { Icon(Icons.Default.CameraAlt, contentDescription = "AR") },
                     label = { Text("AR View") },
                 )
@@ -82,7 +86,20 @@ fun CatalogScreen(
             }
         },
     ) { paddingValues ->
-        Box(modifier = Modifier.padding(paddingValues)) {
+        if (showCreateDialog) {
+            CreateRoomDialog(
+                onDismiss = { showCreateDialog = false },
+                onCreate = { name, type ->
+                    coroutineScope.launch {
+                        val roomId = viewModel.createRoom(name, type)
+                        showCreateDialog = false
+                        onNavigateToAr(roomId)
+                    }
+                }
+            )
+        }
+        
+        Box(modifier = Modifier.fillMaxSize().padding(paddingValues)) {
             if (uiState.isLoading) {
                 LoadingOverlay()
             } else {

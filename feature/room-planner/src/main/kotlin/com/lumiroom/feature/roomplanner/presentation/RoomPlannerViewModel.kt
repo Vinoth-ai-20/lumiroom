@@ -9,10 +9,12 @@ import javax.inject.Inject
 import com.lumiroom.feature.roomplanner.domain.geometry.Point2D
 import com.lumiroom.feature.roomplanner.domain.geometry.BoundingBox
 import com.lumiroom.feature.roomplanner.domain.geometry.LineSegment
-import com.lumiroom.feature.roomplanner.domain.command.Command
-import com.lumiroom.feature.roomplanner.domain.command.CommandManager
+
+
 import com.lumiroom.core.database.repository.FurnitureRepository
 import com.lumiroom.core.domain.SharedRoomRepository
+import com.lumiroom.core.domain.RoomStateManager
+import com.lumiroom.core.domain.model.*
 import com.lumiroom.core.database.model.Furniture
 import com.lumiroom.core.database.dao.RoomPlanDao
 import com.lumiroom.core.database.entity.RoomPlanEntity
@@ -42,6 +44,12 @@ enum class InteractionMode {
     MOVE_FURNITURE,
     MEASURE,
     REMOVE
+}
+
+enum class RoomLayer {
+    STRUCTURAL,
+    FURNITURE,
+    LABELS
 }
 
 data class Wall(val id: String, val segment: LineSegment, val thicknessCm: Float = 10f)
@@ -76,14 +84,18 @@ data class RoomPlannerUiState(
     val currentDrawingStartPoint: Point2D? = null,
     val currentDrawingEndPoint: Point2D? = null,
     val draggedFurnitureId: String? = null,
-    val focusedPlacedFurnitureId: String? = null,
+    val dragOffset: Point2D? = null,
+    val focusedPlacedFurnitureIds: Set<String> = emptySet(), val isMultiSelectMode: Boolean = false,
     val selectedFurnitureId: String? = null, // catalog item to place
     val deleteConfirmationId: String? = null,
     val deleteConfirmationType: String? = null,
+    val visibleLayers: Set<RoomLayer> = setOf(RoomLayer.STRUCTURAL, RoomLayer.FURNITURE, RoomLayer.LABELS),
     val canUndo: Boolean = false,
     val canRedo: Boolean = false,
     val roomAreaSqM: Float = 0f,
-    val roomPerimeterM: Float = 0f
+    val roomPerimeterM: Float = 0f,
+    val snapToGrid: Boolean = true,
+    val snapToWalls: Boolean = true
 )
 
 @HiltViewModel
@@ -91,26 +103,26 @@ class RoomPlannerViewModel @Inject constructor(
     private val furnitureRepository: FurnitureRepository,
     private val roomPlanDao: RoomPlanDao,
     private val sharedRoomRepository: SharedRoomRepository,
+    private val roomStateManager: RoomStateManager,
     private val savedStateHandle: SavedStateHandle
 ) : ViewModel() {
 
-    private val commandManager = CommandManager()
 
     private val _uiState = MutableStateFlow(RoomPlannerUiState())
     val uiState: StateFlow<RoomPlannerUiState> = _uiState
 
     fun undo() {
-        commandManager.undo()
-        updateUndoRedoState()
+        roomStateManager.undo()
     }
 
     fun redo() {
-        commandManager.redo()
-        updateUndoRedoState()
+        roomStateManager.redo()
     }
 
-    private fun updateUndoRedoState() {
-        val walls = _uiState.value.walls
+
+    private var preDragFurnitureSnapshot: List<Placed2DFurniture>? = null
+
+    private fun updateAreaAndPerimeter(walls: List<Wall>) {
         val perimeter = walls.sumOf { it.segment.length.toDouble() }.toFloat() / 100f // convert cm to m
         
         var minX = Float.MAX_VALUE
@@ -136,68 +148,94 @@ class RoomPlannerViewModel @Inject constructor(
 
         _uiState.update { 
             it.copy(
-                canUndo = commandManager.canUndo, 
-                canRedo = commandManager.canRedo,
                 roomPerimeterM = perimeter,
                 roomAreaSqM = area
             ) 
         }
     }
 
-    private var preDragFurnitureSnapshot: List<Placed2DFurniture>? = null
-
-    private fun executeModelChange(
-        oldWalls: List<Wall>, newWalls: List<Wall>,
-        oldDoors: List<Door>, newDoors: List<Door>,
-        oldWindows: List<Window>, newWindows: List<Window>,
-        oldFurniture: List<Placed2DFurniture>, newFurniture: List<Placed2DFurniture>
+    private fun updateRoomState(
+        walls: List<Wall>? = null,
+        doors: List<Door>? = null,
+        windows: List<Window>? = null,
+        furniture: List<Placed2DFurniture>? = null
     ) {
-        val command = object : Command {
-            override fun execute() {
-                _uiState.update { 
-                    it.copy(walls = newWalls, doors = newDoors, windows = newWindows, furniture = newFurniture)
-                }
-                savePlan()
+        roomStateManager.updateState { model ->
+            var newModel = model
+            if (walls != null) {
+                newModel = newModel.copy(walls = walls.map { w -> RoomWall(w.id, w.segment.start.x, w.segment.start.y, w.segment.end.x, w.segment.end.y, w.thicknessCm, 250f) })
             }
-            override fun undo() {
-                _uiState.update {
-                    it.copy(walls = oldWalls, doors = oldDoors, windows = oldWindows, furniture = oldFurniture)
-                }
-                // also cancel dragging if undone while dragging (unlikely, but safe)
-                _uiState.update { it.copy(draggedFurnitureId = null) }
-                savePlan()
+            if (doors != null) {
+                newModel = newModel.copy(doors = doors.map { d -> RoomDoor(d.id, d.segment.start.x, d.segment.start.y, d.segment.end.x, d.segment.end.y, d.thicknessCm, 200f, d.swingAngle) })
             }
+            if (windows != null) {
+                newModel = newModel.copy(windows = windows.map { w -> RoomWindow(w.id, w.segment.start.x, w.segment.start.y, w.segment.end.x, w.segment.end.y, w.thicknessCm, 120f, 80f) })
+            }
+            if (furniture != null) {
+                val oldMap = model.furniture.associateBy { it.id }
+                newModel = newModel.copy(furniture = furniture.map { f ->
+                    val oldF = oldMap[f.id]
+                    RoomFurniture(
+                        id = f.id,
+                        furnitureId = f.furnitureId,
+                        positionX = f.position.x,
+                        positionY = f.position.y,
+                        rotation = f.rotation,
+                        scaleX = f.scale,
+                        scaleY = f.scale,
+                        widthCm = f.widthCm,
+                        depthCm = f.depthCm,
+                        heightCm = oldF?.heightCm ?: 100f,
+                        colorHex = f.colorHex,
+                        zIndex = f.zIndex,
+                        name = oldF?.name ?: "",
+                        category = oldF?.category ?: "",
+                        modelPath = oldF?.modelPath ?: "",
+                        thumbnailPath = oldF?.thumbnailPath,
+                        priceEstimate = oldF?.priceEstimate
+                    )
+                })
+            }
+            newModel
         }
-        commandManager.execute(command)
-        updateUndoRedoState()
+        savePlan()
     }
+
 
     val catalog: StateFlow<List<Furniture>> = furnitureRepository.getAllFurniture()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     private var currentPlanId: String = savedStateHandle.get<String>("planId") ?: java.util.UUID.randomUUID().toString()
 
+
     init {
         val planId = savedStateHandle.get<String>("planId")
         if (planId != null) {
             currentPlanId = planId
             viewModelScope.launch {
-                sharedRoomRepository.observeRoomState(planId).collect { planDetails ->
-                    if (planDetails != null) {
+                val dbState = sharedRoomRepository.getRoomState(planId)
+                if (dbState != null) {
+                    roomStateManager.initialize(dbState)
+                }
+                
+                roomStateManager.roomModel.collect { model ->
+                    if (model != null) {
                         _uiState.update { state ->
-                            // When the DB emits, we only overwrite if we aren't actively dragging
                             if (state.draggedFurnitureId == null) {
                                 state.copy(
-                                    walls = planDetails.walls.map { Wall(it.id, LineSegment(Point2D(it.startX, it.startY), Point2D(it.endX, it.endY)), it.thicknessCm) },
-                                    doors = planDetails.doors.map { Door(it.id, LineSegment(Point2D(it.startX, it.startY), Point2D(it.endX, it.endY)), it.thicknessCm, 90f) },
-                                    windows = planDetails.windows.map { Window(it.id, LineSegment(Point2D(it.startX, it.startY), Point2D(it.endX, it.endY)), it.thicknessCm) },
-                                    furniture = planDetails.furniture.map { Placed2DFurniture(it.id, it.furnitureId, Point2D(it.positionX, it.positionY), it.rotation, it.scaleX) }
+                                    walls = model.walls.map { Wall(it.id, LineSegment(Point2D(it.startX, it.startY), Point2D(it.endX, it.endY)), it.thicknessCm) },
+                                    doors = model.doors.map { Door(it.id, LineSegment(Point2D(it.startX, it.startY), Point2D(it.endX, it.endY)), it.thicknessCm, it.swingAngle) },
+                                    windows = model.windows.map { Window(it.id, LineSegment(Point2D(it.startX, it.startY), Point2D(it.endX, it.endY)), it.thicknessCm) },
+                                    furniture = model.furniture.map { Placed2DFurniture(it.id, it.furnitureId, Point2D(it.positionX, it.positionY), it.rotation, it.scaleX, it.widthCm, it.depthCm, it.colorHex, it.zIndex, false) },
+                                    focusedPlacedFurnitureIds = model.selectionState.selectedItemIds,
+                                    canUndo = roomStateManager.canUndo,
+                                    canRedo = roomStateManager.canRedo
                                 )
                             } else {
                                 state
                             }
                         }
-                        updateUndoRedoState()
+                        updateAreaAndPerimeter(_uiState.value.walls)
                     }
                 }
             }
@@ -269,15 +307,23 @@ class RoomPlannerViewModel @Inject constructor(
         val state = _uiState.value
         val snapThreshold = 20f / state.zoom
 
+        var snappedX = point.x
+        var snappedY = point.y
+        if (state.snapToGrid) {
+            snappedX = kotlin.math.round(point.x / state.gridSizeCm) * state.gridSizeCm
+            snappedY = kotlin.math.round(point.y / state.gridSizeCm) * state.gridSizeCm
+        }
+        val gridSnappedPoint = Point2D(snappedX, snappedY)
+
         if (state.mode == InteractionMode.DRAW_DOOR || state.mode == InteractionMode.DRAW_WINDOW) {
             // Snap to nearest wall line
             var nearestPoint: Point2D? = null
             var minDistance = snapThreshold
             for (wall in state.walls) {
-                val distance = wall.segment.distanceToPoint(point)
+                val distance = wall.segment.distanceToPoint(gridSnappedPoint)
                 if (distance < minDistance) {
                     minDistance = distance
-                    nearestPoint = wall.segment.projectPoint(point)
+                    nearestPoint = wall.segment.projectPoint(gridSnappedPoint)
                 }
             }
             if (nearestPoint != null) {
@@ -285,27 +331,19 @@ class RoomPlannerViewModel @Inject constructor(
             }
         }
 
-        if (state.mode == InteractionMode.DRAW_WALL || state.mode == InteractionMode.MEASURE) {
-            // 1. Endpoint Snapping
-            for (wall in state.walls) {
-                if (point.distanceTo(wall.segment.start) < snapThreshold) return wall.segment.start
-                if (point.distanceTo(wall.segment.end) < snapThreshold) return wall.segment.end
+        // 2. Orthogonal Snapping
+        if (startPoint != null) {
+            val dx = kotlin.math.abs(point.x - startPoint.x)
+            val dy = kotlin.math.abs(point.y - startPoint.y)
+            if (dx < snapThreshold) {
+                return Point2D(startPoint.x, gridSnappedPoint.y)
             }
-
-            // 2. Orthogonal Snapping
-            if (startPoint != null) {
-                val dx = kotlin.math.abs(point.x - startPoint.x)
-                val dy = kotlin.math.abs(point.y - startPoint.y)
-                if (dx < snapThreshold) {
-                    return Point2D(startPoint.x, point.y)
-                }
-                if (dy < snapThreshold) {
-                    return Point2D(point.x, startPoint.y)
-                }
+            if (dy < snapThreshold) {
+                return Point2D(gridSnappedPoint.x, startPoint.y)
             }
         }
         
-        return point
+        return gridSnappedPoint
     }
 
     fun onCanvasPointerDown(point: Point2D) {
@@ -317,33 +355,53 @@ class RoomPlannerViewModel @Inject constructor(
             val snapped = getSnappedPoint(point)
             _uiState.update { it.copy(currentDrawingStartPoint = snapped, currentDrawingEndPoint = snapped) }
         } else if (state.mode == InteractionMode.PLACE_FURNITURE && state.selectedFurnitureId != null) {
+            val selectedFurniture = catalog.value.find { it.id == state.selectedFurnitureId }
             val newFurniture = Placed2DFurniture(
                 id = java.util.UUID.randomUUID().toString(),
                 furnitureId = state.selectedFurnitureId,
-                position = point
+                position = point,
+                widthCm = selectedFurniture?.width ?: 100f,
+                depthCm = selectedFurniture?.depth ?: 100f
             )
-            executeModelChange(
-                oldWalls = state.walls, newWalls = state.walls,
-                oldDoors = state.doors, newDoors = state.doors,
-                oldWindows = state.windows, newWindows = state.windows,
-                oldFurniture = state.furniture, newFurniture = state.furniture + newFurniture
-            )
+            updateRoomState(furniture = state.furniture + newFurniture)
             _uiState.update { it.copy(mode = InteractionMode.SELECT, selectedFurnitureId = null) }
         } else if (state.mode == InteractionMode.SELECT) {
-            val touchedFurniture = state.furniture.reversed().find { f ->
-                point.distanceTo(f.position) < (20f / state.zoom)
+            val touchedFurniture = state.furniture.sortedByDescending { it.zIndex }.find { f ->
+                val rect = com.lumiroom.feature.roomplanner.domain.geometry.RotatedRect(f.position, f.widthCm * f.scale, f.depthCm * f.scale, f.rotation)
+                rect.contains(point)
             }
             if (touchedFurniture != null) {
                 preDragFurnitureSnapshot = state.furniture
-                _uiState.update { it.copy(draggedFurnitureId = touchedFurniture.id, focusedPlacedFurnitureId = touchedFurniture.id) }
+                val offset = Point2D(touchedFurniture.position.x - point.x, touchedFurniture.position.y - point.y)
+                _uiState.update { currentState ->
+                    val newSelection = if (currentState.isMultiSelectMode) {
+                        if (currentState.focusedPlacedFurnitureIds.contains(touchedFurniture.id)) {
+                            currentState.focusedPlacedFurnitureIds - touchedFurniture.id
+                        } else {
+                            currentState.focusedPlacedFurnitureIds + touchedFurniture.id
+                        }
+                    } else {
+                        setOf(touchedFurniture.id)
+                    }
+                    roomStateManager.updateStateTransient { model ->
+                        model.copy(selectionState = model.selectionState.copy(selectedItemIds = newSelection))
+                    }
+                    currentState.copy(draggedFurnitureId = touchedFurniture.id, dragOffset = offset, focusedPlacedFurnitureIds = newSelection)
+                }
             } else {
-                _uiState.update { it.copy(focusedPlacedFurnitureId = null) }
+                _uiState.update { it.copy(focusedPlacedFurnitureIds = emptySet()) }
+                roomStateManager.updateStateTransient { model ->
+                    model.copy(selectionState = model.selectionState.copy(selectedItemIds = emptySet()))
+                }
             }
         } else if (state.mode == InteractionMode.REMOVE) {
             val hitThreshold = 20f / state.zoom
             
             // Priority: Furniture -> Window -> Door -> Wall
-            val touchedFurniture = state.furniture.reversed().find { f -> point.distanceTo(f.position) < hitThreshold }
+            val touchedFurniture = state.furniture.sortedByDescending { it.zIndex }.find { f -> 
+                val rect = com.lumiroom.feature.roomplanner.domain.geometry.RotatedRect(f.position, f.widthCm * f.scale, f.depthCm * f.scale, f.rotation)
+                rect.contains(point)
+            }
             if (touchedFurniture != null) {
                 _uiState.update { it.copy(deleteConfirmationId = touchedFurniture.id, deleteConfirmationType = "Furniture") }
                 return
@@ -380,12 +438,72 @@ class RoomPlannerViewModel @Inject constructor(
         )
     }
 
+    private fun getSnappedFurniture(f: Placed2DFurniture, point: Point2D): Pair<Point2D, Float> {
+        val state = _uiState.value
+        var snappedX = point.x
+        var snappedY = point.y
+        var newRotation = f.rotation
+
+        // 1. Grid Snapping
+        if (state.snapToGrid) {
+            snappedX = kotlin.math.round(point.x / state.gridSizeCm) * state.gridSizeCm
+            snappedY = kotlin.math.round(point.y / state.gridSizeCm) * state.gridSizeCm
+        }
+        var currentPoint = Point2D(snappedX, snappedY)
+
+        // 2. Wall Snapping
+        if (state.snapToWalls) {
+            val snapThreshold = 30f / state.zoom
+            var nearestWall: Wall? = null
+            var minDistance = snapThreshold
+            var nearestProjected: Point2D? = null
+
+            for (wall in state.walls) {
+                val dist = wall.segment.distanceToPoint(currentPoint)
+                if (dist < minDistance) {
+                    minDistance = dist
+                    nearestWall = wall
+                    nearestProjected = wall.segment.projectPoint(currentPoint)
+                }
+            }
+
+            if (nearestWall != null && nearestProjected != null) {
+                val dx = nearestWall.segment.end.x - nearestWall.segment.start.x
+                val dy = nearestWall.segment.end.y - nearestWall.segment.start.y
+                val len = kotlin.math.sqrt((dx * dx + dy * dy).toDouble()).toFloat()
+                if (len > 0f) {
+                    val nx = -dy / len
+                    val ny = dx / len
+                    val dot = (currentPoint.x - nearestProjected.x) * nx + (currentPoint.y - nearestProjected.y) * ny
+                    val side = if (dot >= 0) 1f else -1f
+                    
+                    currentPoint = Point2D(
+                        nearestProjected.x + nx * side * (f.depthCm / 2f),
+                        nearestProjected.y + ny * side * (f.depthCm / 2f)
+                    )
+                    newRotation = Math.toDegrees(kotlin.math.atan2(dy.toDouble(), dx.toDouble())).toFloat()
+                }
+            }
+        }
+
+        return Pair(currentPoint, newRotation)
+    }
+
+    private fun Placed2DFurniture.getRotatedRect(): com.lumiroom.feature.roomplanner.domain.geometry.RotatedRect {
+        return com.lumiroom.feature.roomplanner.domain.geometry.RotatedRect(
+            center = position,
+            width = widthCm * scale,
+            height = depthCm * scale,
+            rotationDegrees = rotation
+        )
+    }
+
     private fun checkCollisions(furniture: List<Placed2DFurniture>): List<Placed2DFurniture> {
-        val boxes = furniture.associate { it.id to it.getBoundingBox() }
+        val rects = furniture.associate { it.id to it.getRotatedRect() }
         return furniture.map { f ->
-            val myBox = boxes[f.id]!!
+            val myRect = rects[f.id]!!
             val hasCol = furniture.any { other ->
-                other.id != f.id && myBox.intersects(boxes[other.id]!!)
+                other.id != f.id && myRect.intersects(rects[other.id]!!)
             }
             f.copy(hasCollision = hasCol)
         }
@@ -400,9 +518,14 @@ class RoomPlannerViewModel @Inject constructor(
             val snapped = getSnappedPoint(point, state.currentDrawingStartPoint)
             _uiState.update { it.copy(currentDrawingEndPoint = snapped) }
         } else if (state.mode == InteractionMode.SELECT && state.draggedFurnitureId != null) {
+            val offset = state.dragOffset ?: Point2D(0f, 0f)
+            val effectivePoint = Point2D(point.x + offset.x, point.y + offset.y)
             _uiState.update { currentState ->
                 val newFurnitureList = currentState.furniture.map { f ->
-                    if (f.id == state.draggedFurnitureId) f.copy(position = point) else f
+                    if (f.id == state.draggedFurnitureId) {
+                        val (snappedPos, snappedRot) = getSnappedFurniture(f, effectivePoint)
+                        f.copy(position = snappedPos, rotation = snappedRot)
+                    } else f
                 }
                 currentState.copy(furniture = checkCollisions(newFurnitureList))
             }
@@ -417,12 +540,7 @@ class RoomPlannerViewModel @Inject constructor(
         if (state.mode == InteractionMode.DRAW_WALL) {
             if (start != null && end != null && start.distanceTo(end) > 5f) {
                 val newWall = Wall(java.util.UUID.randomUUID().toString(), LineSegment(start, end))
-                executeModelChange(
-                    oldWalls = state.walls, newWalls = state.walls + newWall,
-                    oldDoors = state.doors, newDoors = state.doors,
-                    oldWindows = state.windows, newWindows = state.windows,
-                    oldFurniture = state.furniture, newFurniture = state.furniture
-                )
+                updateRoomState(walls = state.walls + newWall)
                 _uiState.update { it.copy(currentDrawingStartPoint = null, currentDrawingEndPoint = null) }
             } else {
                 _uiState.update { it.copy(currentDrawingStartPoint = null, currentDrawingEndPoint = null) }
@@ -430,12 +548,7 @@ class RoomPlannerViewModel @Inject constructor(
         } else if (state.mode == InteractionMode.DRAW_DOOR) {
             if (start != null && end != null && start.distanceTo(end) > 5f) {
                 val newDoor = Door(java.util.UUID.randomUUID().toString(), LineSegment(start, end))
-                executeModelChange(
-                    oldWalls = state.walls, newWalls = state.walls,
-                    oldDoors = state.doors, newDoors = state.doors + newDoor,
-                    oldWindows = state.windows, newWindows = state.windows,
-                    oldFurniture = state.furniture, newFurniture = state.furniture
-                )
+                updateRoomState(doors = state.doors + newDoor)
                 _uiState.update { it.copy(currentDrawingStartPoint = null, currentDrawingEndPoint = null) }
             } else {
                 _uiState.update { it.copy(currentDrawingStartPoint = null, currentDrawingEndPoint = null) }
@@ -443,12 +556,7 @@ class RoomPlannerViewModel @Inject constructor(
         } else if (state.mode == InteractionMode.DRAW_WINDOW) {
             if (start != null && end != null && start.distanceTo(end) > 5f) {
                 val newWindow = Window(java.util.UUID.randomUUID().toString(), LineSegment(start, end))
-                executeModelChange(
-                    oldWalls = state.walls, newWalls = state.walls,
-                    oldDoors = state.doors, newDoors = state.doors,
-                    oldWindows = state.windows, newWindows = state.windows + newWindow,
-                    oldFurniture = state.furniture, newFurniture = state.furniture
-                )
+                updateRoomState(windows = state.windows + newWindow)
                 _uiState.update { it.copy(currentDrawingStartPoint = null, currentDrawingEndPoint = null) }
             } else {
                 _uiState.update { it.copy(currentDrawingStartPoint = null, currentDrawingEndPoint = null) }
@@ -458,140 +566,87 @@ class RoomPlannerViewModel @Inject constructor(
         } else if (state.mode == InteractionMode.SELECT) {
             val snapshot = preDragFurnitureSnapshot
             if (state.draggedFurnitureId != null && snapshot != null) {
-                executeModelChange(
-                    oldWalls = state.walls, newWalls = state.walls,
-                    oldDoors = state.doors, newDoors = state.doors,
-                    oldWindows = state.windows, newWindows = state.windows,
-                    oldFurniture = snapshot, newFurniture = state.furniture
-                )
+                updateRoomState()
             }
             preDragFurnitureSnapshot = null
-            _uiState.update { it.copy(draggedFurnitureId = null) }
+            _uiState.update { it.copy(draggedFurnitureId = null, dragOffset = null) }
         }
     }
 
-    fun savePlan(planName: String = "My Plan") {
-        val state = _uiState.value
-        val planId = currentPlanId
-        val plan = RoomPlanEntity(
-            id = planId,
-            name = planName,
-            updatedAt = System.currentTimeMillis()
-        )
-        val wallEntities = state.walls.map { w ->
-            WallEntity(
-                id = w.id,
-                planId = planId,
-                startX = w.segment.start.x,
-                startY = w.segment.start.y,
-                endX = w.segment.end.x,
-                endY = w.segment.end.y,
-                thicknessCm = w.thicknessCm
-            )
-        }
-        val itemEntities = state.furniture.map { f ->
-            FloorPlanItemEntity(
-                id = f.id,
-                planId = planId,
-                furnitureId = f.furnitureId,
-                posX = f.position.x,
-                posY = f.position.y,
-                rotation = f.rotation,
-                scaleX = f.scale,
-                scaleY = f.scale
-            )
-        }
-        val doorEntities = state.doors.map { d ->
-            DoorEntity(
-                id = d.id,
-                planId = planId,
-                startX = d.segment.start.x,
-                startY = d.segment.start.y,
-                endX = d.segment.end.x,
-                endY = d.segment.end.y,
-                thicknessCm = d.thicknessCm,
-                swingAngle = d.swingAngle
-            )
-        }
-        val windowEntities = state.windows.map { w ->
-            WindowEntity(
-                id = w.id,
-                planId = planId,
-                startX = w.segment.start.x,
-                startY = w.segment.start.y,
-                endX = w.segment.end.x,
-                endY = w.segment.end.y,
-                thicknessCm = w.thicknessCm
-            )
-        }
+
+    fun savePlan(planName: String? = null) {
+        val model = roomStateManager.roomModel.value ?: return
+        val updatedModel = if (planName != null) model.copy(name = planName) else model
         viewModelScope.launch {
-            roomPlanDao.saveFullPlan(plan, wallEntities, itemEntities, doorEntities, windowEntities)
+            sharedRoomRepository.saveRoomState(updatedModel)
         }
+    }
+
+    fun moveFocusedFurniture(dx: Float, dy: Float) {
+        val state = _uiState.value
+        val ids = state.focusedPlacedFurnitureIds
+        if (ids.isEmpty()) return
+        val newFurniture = state.furniture.map { f ->
+            if (ids.contains(f.id)) f.copy(position = Point2D(f.position.x + dx, f.position.y + dy)) else f
+        }
+        updateRoomState(furniture = checkCollisions(newFurniture)
+        )
     }
 
     fun rotateFocusedFurniture(deltaDegrees: Float) {
         val state = _uiState.value
-        val id = state.focusedPlacedFurnitureId ?: return
+        val ids = state.focusedPlacedFurnitureIds
+        if (ids.isEmpty()) return
         val newFurniture = state.furniture.map { f ->
-            if (f.id == id) f.copy(rotation = f.rotation + deltaDegrees) else f
+            if (ids.contains(f.id)) f.copy(rotation = f.rotation + deltaDegrees) else f
         }
-        executeModelChange(
-            oldWalls = state.walls, newWalls = state.walls,
-            oldDoors = state.doors, newDoors = state.doors,
-            oldWindows = state.windows, newWindows = state.windows,
-            oldFurniture = state.furniture, newFurniture = newFurniture
+        updateRoomState(furniture = checkCollisions(newFurniture)
         )
     }
 
     fun scaleFocusedFurniture(deltaScale: Float) {
         val state = _uiState.value
-        val id = state.focusedPlacedFurnitureId ?: return
+        val ids = state.focusedPlacedFurnitureIds
+        if (ids.isEmpty()) return
         val newFurniture = state.furniture.map { f ->
-            if (f.id == id) f.copy(scale = (f.scale + deltaScale).coerceIn(0.5f, 3.0f)) else f
+            if (ids.contains(f.id)) f.copy(scale = (f.scale + deltaScale).coerceIn(0.5f, 3.0f)) else f
         }
-        executeModelChange(
-            oldWalls = state.walls, newWalls = state.walls,
-            oldDoors = state.doors, newDoors = state.doors,
-            oldWindows = state.windows, newWindows = state.windows,
-            oldFurniture = state.furniture, newFurniture = newFurniture
+        updateRoomState(furniture = checkCollisions(newFurniture)
         )
     }
 
     fun bringFurnitureForward() {
         val state = _uiState.value
-        val id = state.focusedPlacedFurnitureId ?: return
+        val ids = state.focusedPlacedFurnitureIds
+        if (ids.isEmpty()) return
         val newFurniture = state.furniture.map { f ->
-            if (f.id == id) f.copy(zIndex = f.zIndex + 1) else f
+            if (ids.contains(f.id)) f.copy(zIndex = f.zIndex + 1) else f
         }
-        executeModelChange(
-            oldWalls = state.walls, newWalls = state.walls,
-            oldDoors = state.doors, newDoors = state.doors,
-            oldWindows = state.windows, newWindows = state.windows,
-            oldFurniture = state.furniture, newFurniture = newFurniture
+        updateRoomState(furniture = checkCollisions(newFurniture)
         )
     }
 
     fun sendFurnitureBackward() {
         val state = _uiState.value
-        val id = state.focusedPlacedFurnitureId ?: return
+        val ids = state.focusedPlacedFurnitureIds
+        if (ids.isEmpty()) return
         val newFurniture = state.furniture.map { f ->
-            if (f.id == id) f.copy(zIndex = f.zIndex - 1) else f
+            if (ids.contains(f.id)) f.copy(zIndex = f.zIndex - 1) else f
         }
-        executeModelChange(
-            oldWalls = state.walls, newWalls = state.walls,
-            oldDoors = state.doors, newDoors = state.doors,
-            oldWindows = state.windows, newWindows = state.windows,
-            oldFurniture = state.furniture, newFurniture = newFurniture
+        updateRoomState(furniture = checkCollisions(newFurniture)
         )
     }
 
     fun deleteFocusedItem() {
-        val id = _uiState.value.focusedPlacedFurnitureId ?: return
-        _uiState.update { state ->
-            state.copy(
-                furniture = state.furniture.filterNot { it.id == id },
-                focusedPlacedFurnitureId = null
-            )
+        val state = _uiState.value
+        val ids = state.focusedPlacedFurnitureIds
+        if (ids.isEmpty()) return
+        
+        val newFurniture = state.furniture.filterNot { ids.contains(it.id) }
+        updateRoomState(furniture = newFurniture)
+        _uiState.update { it.copy(focusedPlacedFurnitureIds = emptySet()) }
+        roomStateManager.updateStateTransient { model ->
+            model.copy(selectionState = model.selectionState.copy(selectedItemIds = emptySet()))
         }
     }
 
@@ -653,12 +708,7 @@ class RoomPlannerViewModel @Inject constructor(
         val newWindows = if (state.deleteConfirmationType == "Window") state.windows.filter { it.id != id } else state.windows
         val newFurniture = if (state.deleteConfirmationType == "Furniture") state.furniture.filter { it.id != id } else state.furniture
         
-        executeModelChange(
-            oldWalls = state.walls, newWalls = newWalls,
-            oldDoors = state.doors, newDoors = newDoors,
-            oldWindows = state.windows, newWindows = newWindows,
-            oldFurniture = state.furniture, newFurniture = newFurniture
-        )
+        updateRoomState(walls = newWalls, doors = newDoors, windows = newWindows, furniture = newFurniture)
         
         _uiState.update { 
             it.copy(deleteConfirmationId = null, deleteConfirmationType = null)
@@ -667,5 +717,16 @@ class RoomPlannerViewModel @Inject constructor(
 
     fun cancelDelete() {
         _uiState.update { it.copy(deleteConfirmationId = null, deleteConfirmationType = null) }
+    }
+
+    fun toggleLayer(layer: RoomLayer) {
+        _uiState.update { state ->
+            val newLayers = if (state.visibleLayers.contains(layer)) {
+                state.visibleLayers - layer
+            } else {
+                state.visibleLayers + layer
+            }
+            state.copy(visibleLayers = newLayers)
+        }
     }
 }

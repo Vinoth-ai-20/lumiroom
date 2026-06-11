@@ -1,46 +1,96 @@
 # State Machine Diagrams
 
 **Project:** Lumiroom: AI-Assisted Mobile AR Furniture Visualization and Interior Planning System  
-**Version:** 1.0  
-**Date:** 2026-06-10  
+**Version:** 2.0  
 
-[⬅ Back to README](../README.md) | [Next: Activity Diagrams](ActivityDiagrams.md)
+[⬅ Back to Sequence Diagrams](SequenceDiagrams.md) | [Next: Activity Diagrams](ActivityDiagrams.md)
 
 ---
 
-## 1. AR Entity Lifecycle
+## 1. AR UI States (`ArUiState`)
 
-Describes the state of a 3D furniture model inside the AR Scene.
+The states that the AR Screen composable reacts to.
 
 ```mermaid
 stateDiagram-v2
-    [*] --> Placed : User taps screen with selected catalog item
+    [*] --> Initializing : Session starts
+    Initializing --> Scanning : ARCore Active
     
-    Placed --> Selected : User taps object
-    Selected --> Moving : User drags object
-    Moving --> Selected : User releases object
+    Scanning --> PlaneDetected : First plane found
+    PlaneDetected --> Placing : User taps to place
+    Placing --> Selected : Item successfully anchored
     
-    Selected --> Hidden : User toggles visibility
-    Hidden --> Selected : User toggles visibility
+    Selected --> Scanning : User clears selection
+    Selected --> Placing : User taps elsewhere
     
-    Selected --> Locked : User locks object
-    Locked --> Selected : User unlocks object
-    
-    Selected --> Deleted : User taps delete
-    Deleted --> [*]
+    Initializing --> Error : Camera permissions denied
+    Scanning --> Error : Tracking failure
 ```
 
-## 2. Voice Command State Machine
+---
 
-Handles the state progression of the SpeechRecognizer.
+## 2. 2D Planner UI States (`RoomPlannerUiState`)
+
+The top-down canvas planner states.
 
 ```mermaid
 stateDiagram-v2
-    [*] --> Idle
-    Idle --> Listening : User holds Mic button
-    Listening --> Processing : User releases Mic button
-    Processing --> Executing : Intent parsed successfully
-    Processing --> Error : NLP Error / Invalid command
-    Executing --> Idle
-    Error --> Idle
+    [*] --> ViewMode : Default navigation
+    ViewMode --> EditMode : User selects an item
+    ViewMode --> DrawWallMode : User taps "Draw Wall"
+    
+    DrawWallMode --> Drawing : User drags on canvas
+    Drawing --> DrawWallMode : User lifts finger
+    DrawWallMode --> ViewMode : User cancels drawing
+    
+    EditMode --> ViewMode : Deselect item
+```
+
+---
+
+## 3. Selection States
+
+The shared selection lifecycle inside the `RoomStateManager`.
+
+```mermaid
+stateDiagram-v2
+    [*] --> None
+    None --> SingleItem : selectItem(id)
+    SingleItem --> None : clearSelection()
+    SingleItem --> SingleItem : selectItem(different_id)
+    SingleItem --> Transforming : User moves/rotates
+    Transforming --> SingleItem : Transform ends
+```
+
+---
+
+## 4. Save States (LayoutPersistenceManager)
+
+Debounced saving states to local Room DB.
+
+```mermaid
+stateDiagram-v2
+    [*] --> Synced
+    Synced --> PendingChanges : RoomState mutation
+    PendingChanges --> Saving : Debounce timer (2s) expires
+    Saving --> Synced : DB Write Success
+    Saving --> Error : DB Write Failure
+    Error --> PendingChanges : Retry logic
+```
+
+---
+
+## 5. Synchronization States (SyncManager)
+
+Background state of syncing to Firebase.
+
+```mermaid
+stateDiagram-v2
+    [*] --> Offline
+    Offline --> Connecting : Network Restored
+    Connecting --> Syncing : Checking local queue
+    Syncing --> InSync : No pending changes
+    Syncing --> Uploading : Sending batches to Firestore
+    Uploading --> InSync : Batch commit success
+    Uploading --> Offline : Connection Lost
 ```

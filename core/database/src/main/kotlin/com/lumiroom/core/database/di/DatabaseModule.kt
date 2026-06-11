@@ -83,6 +83,15 @@ object DatabaseModule {
                 db.execSQL("ALTER TABLE floor_plan_items ADD COLUMN isVisible INTEGER NOT NULL DEFAULT 1")
             }
         })
+        .addMigrations(object : Migration(6, 7) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE room_plans ADD COLUMN cameraPanX REAL NOT NULL DEFAULT 0.0")
+                db.execSQL("ALTER TABLE room_plans ADD COLUMN cameraPanY REAL NOT NULL DEFAULT 0.0")
+                db.execSQL("ALTER TABLE room_plans ADD COLUMN cameraZoom REAL NOT NULL DEFAULT 1.0")
+                db.execSQL("ALTER TABLE room_plans ADD COLUMN planeBoundariesJson TEXT")
+                db.execSQL("ALTER TABLE room_plans ADD COLUMN anchorsJson TEXT")
+            }
+        })
         .fallbackToDestructiveMigrationOnDowngrade()
         .build()
 

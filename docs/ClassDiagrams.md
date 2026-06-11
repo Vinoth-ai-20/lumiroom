@@ -1,76 +1,129 @@
 # Class Diagrams
 
 **Project:** Lumiroom: AI-Assisted Mobile AR Furniture Visualization and Interior Planning System  
-**Version:** 1.0  
-**Date:** 2026-06-10  
+**Version:** 2.0  
 
 [⬅ Back to README](../README.md) | [Next: ER Diagrams](ERDiagrams.md)
 
 ---
 
-## 1. Domain Layer Class Diagram
+## 1. Domain Layer: Shared State Architecture
 
-Demonstrates the separation between presentation state holders (ViewModels) and business logic (UseCases).
+Demonstrates how the `RoomStateManager` serves as the central brain for both AR and 2D views, preventing logic duplication.
 
 ```mermaid
 classDiagram
-    class ArViewModel {
-        -StateFlow~ArState~ uiState
-        -PlaceFurnitureUseCase placeFurniture
-        -VoiceCommandParser voiceParser
-        +onVoiceCommand(transcript: String)
-        +onHitResult(hit: HitResult)
-        +undo()
+    class RoomStateManager {
+        -MutableStateFlow~RoomState~ _state
+        +val state: StateFlow~RoomState~
+        +dispatch(action: RoomAction)
+        -handleMoveItem(id, x, y)
+        -handleWallDraw(points)
     }
     
-    class PlaceFurnitureUseCase {
-        -FurnitureRepository repository
-        +invoke(id: String, hit: HitResult): Result~Unit~
+    class RoomState {
+        +List~Furniture~ furnitureList
+        +List~Wall~ walls
+        +SelectionState selection
+        +CameraState camera
     }
     
-    class VoiceCommandParser {
-        +parse(transcript: String): VoiceIntent
+    class FurnitureSelectionManager {
+        +selectItem(id: UUID)
+        +clearSelection()
+        +rotateSelected(degrees: Float)
     }
     
-    class VoiceIntent {
-        <<enumeration>>
-        PLACE
-        MOVE
-        ROTATE
-        DELETE
+    class RoomPlannerManager {
+        +addWallNode(x: Float, y: Float)
+        +completeWall()
     }
-    
-    ArViewModel --> PlaceFurnitureUseCase
-    ArViewModel --> VoiceCommandParser
-    VoiceCommandParser ..> VoiceIntent
+
+    RoomStateManager --> RoomState : manages
+    RoomStateManager *-- FurnitureSelectionManager : delegates selection
+    RoomStateManager *-- RoomPlannerManager : delegates 2D layout
 ```
 
 ---
 
-## 2. Data Layer Repository Pattern
+## 2. AR Engine Layer
 
-Shows the abstraction of Local and Remote data sources.
+Shows how ARCore and SceneView are abstracted from the ViewModels.
 
 ```mermaid
-classDiagramS
-    class FurnitureRepository {
+classDiagram
+    class LumiroomArSessionManager {
+        -ArSceneView sceneView
+        +setupSession(config: Config)
+        +performHitTest(x, y): HitResult?
+        +addAnchorToNode(node: Node)
+    }
+
+    class CloudAnchorManager {
+        +hostCloudAnchor(anchor: Anchor): Deferred~String~
+        +resolveCloudAnchor(cloudId: String): Deferred~Anchor~
+    }
+    
+    class ArViewModel {
+        -RoomStateManager stateManager
+        +onTap(x, y)
+    }
+    
+    ArViewModel --> LumiroomArSessionManager : uses
+    LumiroomArSessionManager --> CloudAnchorManager : relies on
+```
+
+---
+
+## 3. Data Layer Repository Pattern
+
+Shows the abstraction of Local and Remote data sources and synchronization.
+
+```mermaid
+classDiagram
+    class SharedRoomRepository {
         <<interface>>
-        +getPlacedItems(roomId: String): Flow~List~PlacedItem~~
-        +insertItem(item: PlacedItem)
-        +deleteItem(itemId: String)
+        +observeRoom(roomId: String): Flow~RoomModel~
+        +saveRoomSnapshot(room: RoomModel)
+        +deleteRoom(roomId: String)
     }
     
-    class FurnitureRepositoryImpl {
-        -PlacedItemDao localDao
-        -FirebaseFirestore remoteDb
+    class SharedRoomRepositoryImpl {
+        -RoomDesignDao localDao
+        -CloudRepository remoteRepo
+        -CloudMapper mapper
     }
     
-    class PlacedItemDao {
-        <<interface>>
-        +getAll(roomId): Flow
-        +insert(item)
+    class CloudRepository {
+        -FirestoreDataSource firestore
+        -StorageDataSource storage
+        +uploadRoom(cloudModel: CloudRoomDesign)
     }
     
-    FurnitureRepositoryImpl ..|> FurnitureRepository
-    FurnitureRepositoryImpl --> PlacedItemDao
+    SharedRoomRepositoryImpl ..|> SharedRoomRepository
+    SharedRoomRepositoryImpl --> RoomDesignDao : Local SQLite
+    SharedRoomRepositoryImpl --> CloudRepository : Remote Firebase
+    SharedRoomRepositoryImpl --> CloudMapper : Entity mapping
+```
+
+---
+
+## 4. UI Layer ViewModels
+
+```mermaid
+classDiagram
+    class RoomPlannerViewModel {
+        -RoomStateManager roomStateManager
+        +onCanvasDrag(x, y)
+        +onZoom(scale)
+    }
+    
+    class ArViewModel {
+        -RoomStateManager roomStateManager
+        -PlaceFurnitureUseCase placeFurniture
+        +onHitResult(hit: HitResult)
+    }
+    
+    RoomPlannerViewModel --> RoomStateManager
+    ArViewModel --> RoomStateManager
 ```

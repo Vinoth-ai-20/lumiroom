@@ -65,6 +65,7 @@ fun ArScreen(
     val childNodes = rememberNodes()
     val coroutineScope = rememberCoroutineScope()
     val context = LocalContext.current
+    var arSession by remember { mutableStateOf<com.google.ar.core.Session?>(null) }
 
     var pendingFurnitureId by remember(furnitureId) { mutableStateOf(furnitureId) }
     var currentFrame by remember { mutableStateOf<Frame?>(null) }
@@ -87,10 +88,28 @@ fun ArScreen(
         }
     }
 
+    LaunchedEffect(uiState.anchors, arSession) {
+        val session = arSession ?: return@LaunchedEffect
+        uiState.anchors.forEach { anchorData ->
+            if (!anchorCache.containsKey(anchorData.id)) {
+                try {
+                    val pose = com.google.ar.core.Pose(
+                        floatArrayOf(anchorData.pose.x, anchorData.pose.y, anchorData.pose.z),
+                        floatArrayOf(anchorData.pose.qx, anchorData.pose.qy, anchorData.pose.qz, anchorData.pose.qw)
+                    )
+                    val anchor = session.createAnchor(pose)
+                    anchorCache[anchorData.id] = anchor
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                }
+            }
+        }
+    }
+
     // Initialize AR Engine and Loaders to ModelNodes
     LaunchedEffect(uiState.placedItems, uiState.selectedItemIds, uiState.lockedItemIds, uiState.hiddenItemIds) {
         // Cleanup removed items
-        val currentIds = uiState.placedItems.map { it.item.id }.toSet()
+        val currentIds = uiState.placedItems.map { it.id }.toSet()
         val nodeIds = childNodes.mapNotNull { it.name }.toSet()
         val idsToRemove = nodeIds - currentIds
         idsToRemove.forEach { idToRemove ->
@@ -103,11 +122,11 @@ fun ArScreen(
         
         val toAdd = currentIds - nodeIds
         toAdd.forEach { id ->
-            val placedItem = uiState.placedItems.find { it.item.id == id } ?: return@forEach
+            val placedItem = uiState.placedItems.find { it.id == id } ?: return@forEach
             coroutineScope.launch {
 
                 val modelInstance = try {
-                    modelLoader.loadModelInstance("models/${placedItem.furniture.modelPath.substringAfterLast("/")}")
+                    modelLoader.loadModelInstance("models/${placedItem.modelPath.substringAfterLast("/")}")
                 } catch (e: Exception) {
                     null
                 }
@@ -124,7 +143,7 @@ fun ArScreen(
 
                         Node(engine).apply {
                             name = id
-                            position = Position(placedItem.item.posX, placedItem.item.posY, placedItem.item.posZ)
+                            position = Position(placedItem.positionX, placedItem.positionY, placedItem.positionZ)
                         }
                     }
                     
@@ -134,8 +153,8 @@ fun ArScreen(
 
                     val transformNode = io.github.sceneview.node.Node(engine = engine).apply {
                         name = "transform_$id"
-                        this.scale = Scale(placedItem.item.scaleX, placedItem.item.scaleY, placedItem.item.scaleZ)
-                        this.quaternion = dev.romainguy.kotlin.math.Quaternion.fromAxisAngle(dev.romainguy.kotlin.math.Float3(0f, 1f, 0f), placedItem.item.rotation)
+                        this.scale = Scale(placedItem.scaleX, placedItem.scaleY, placedItem.scaleZ)
+                        this.quaternion = dev.romainguy.kotlin.math.Quaternion.fromAxisAngle(dev.romainguy.kotlin.math.Float3(0f, 1f, 0f), placedItem.rotation)
                         transformNodesMap[id] = this
                         
                         isPositionEditable = false
@@ -204,37 +223,18 @@ fun ArScreen(
                     existingBox.destroy()
                 }
 
-                // Sync and animate external transform changes (e.g., Undo, Redo, Reset)
-                val uiItem = uiState.placedItems.find { it.item.id == id }?.item
-
-                
-                if (uiItem != null && uiState.interactionMode != InteractionMode.MOVE && uiState.interactionMode != InteractionMode.ROTATE && uiState.interactionMode != InteractionMode.SCALE) {
-                    val targetPos = io.github.sceneview.math.Position(uiItem.posX, uiItem.posY, uiItem.posZ)
+                // Sync external transform changes (e.g., Undo, Redo, Planner edits)
+                val uiItem = uiState.placedItems.find { it.id == id }
+                if (uiItem != null && uiState.interactionMode != InteractionMode.ROTATE && uiState.interactionMode != InteractionMode.SCALE) {
                     val targetRot = dev.romainguy.kotlin.math.Quaternion.fromAxisAngle(dev.romainguy.kotlin.math.Float3(0f, 1f, 0f), uiItem.rotation)
                     val targetScale = io.github.sceneview.math.Scale(uiItem.scaleX, uiItem.scaleY, uiItem.scaleZ)
 
-                    val dist = dev.romainguy.kotlin.math.length(baseNode.position - targetPos)
                     val scaleDist = dev.romainguy.kotlin.math.length(transformNode.scale - targetScale)
                     val rotDist = kotlin.math.abs(dev.romainguy.kotlin.math.dot(transformNode.quaternion, targetRot))
                     
-                    if (dist > 0.005f || scaleDist > 0.005f || rotDist < 0.999f) {
-                        coroutineScope.launch {
-                            val startPos = baseNode.position
-                            val startRot = transformNode.quaternion
-                            val startScale = transformNode.scale
-                            val steps = 25 // 400ms at ~60fps
-                            for (i in 0..steps) {
-                                val t = i.toFloat() / steps
-                                val smoothT = t * t * (3f - 2f * t) // ease in out
-                                baseNode.position = dev.romainguy.kotlin.math.mix(startPos, targetPos, smoothT)
-                                transformNode.quaternion = dev.romainguy.kotlin.math.slerp(startRot, targetRot, smoothT)
-                                transformNode.scale = dev.romainguy.kotlin.math.mix(startScale, targetScale, smoothT)
-                                kotlinx.coroutines.delay(16)
-                            }
-                            baseNode.position = targetPos
-                            transformNode.quaternion = targetRot
-                            transformNode.scale = targetScale
-                        }
+                    if (scaleDist > 0.005f || rotDist < 0.999f) {
+                        transformNode.quaternion = targetRot
+                        transformNode.scale = targetScale
                     }
                 }
             }
@@ -282,7 +282,11 @@ fun ArScreen(
                 viewModel.onSessionInitializing()
             },
             onSessionUpdated = { session, frame ->
+                if (arSession != session) {
+                    arSession = session
+                }
                 currentFrame = frame
+                val trackables = frame.getUpdatedTrackables(Plane::class.java)
                 if (uiState.sessionState == ArSessionState.Initializing) {
                     viewModel.onSessionScanning()
                 }
@@ -419,7 +423,7 @@ fun ArScreen(
                     if (uiState.lockedItemIds.contains(selectedId)) return
                     
                     val transformNode = transformNodesMap[selectedId] ?: return
-                    val placedItem = uiState.placedItems.find { it.item.id == selectedId } ?: return
+                    val placedItem = uiState.placedItems.find { it.id == selectedId } ?: return
                     
                     super.onScale(detector, e, node)
                     val factor = detector.scaleFactor
@@ -476,7 +480,16 @@ fun ArScreen(
                                 anchorCache[instanceId] = anchor
                                 
                                 if (uiState.roomAnchorId == null) {
-                                    viewModel.setRoomAnchor(instanceId)
+                                    val poseData = com.lumiroom.core.domain.model.PoseData(
+                                        x = hitResult.hitPose.tx(),
+                                        y = hitResult.hitPose.ty(),
+                                        z = hitResult.hitPose.tz(),
+                                        qx = hitResult.hitPose.qx(),
+                                        qy = hitResult.hitPose.qy(),
+                                        qz = hitResult.hitPose.qz(),
+                                        qw = hitResult.hitPose.qw()
+                                    )
+                                    viewModel.setRoomAnchor(instanceId, poseData)
                                 } else {
                                     // 2D Mapping: calculate position relative to roomAnchor
                                     val roomAnchor = anchorCache[uiState.roomAnchorId!!]
@@ -621,7 +634,7 @@ fun ArScreen(
         // ── Furniture Details Panel (Left) ────────────────────────────────────
         if (uiState.selectedItemIds.size == 1) {
             val selectedId = uiState.selectedItemIds.first()
-            val item = uiState.placedItems.find { it.item.id == selectedId }?.furniture
+            val item = uiState.placedItems.find { it.id == selectedId }
             if (item != null) {
                 FurnitureDetailsPanel(
                     modifier = Modifier.align(Alignment.CenterStart).padding(start = 16.dp),
@@ -633,7 +646,7 @@ fun ArScreen(
         // ── Measurement Panel (Right) ─────────────────────────────────────────
         if (uiState.isMeasuring && uiState.selectedItemIds.size == 1) {
             val selectedId = uiState.selectedItemIds.first()
-            val item = uiState.placedItems.find { it.item.id == selectedId }
+            val item = uiState.placedItems.find { it.id == selectedId }
             if (item != null) {
                 Card(
                     modifier = Modifier.align(Alignment.CenterEnd).padding(end = 16.dp),
@@ -643,9 +656,9 @@ fun ArScreen(
                     Column(modifier = Modifier.padding(16.dp)) {
                         Text("Measurements", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                         Spacer(Modifier.height(8.dp))
-                        Text("W: ${String.format("%.2f", item.furniture.width * item.item.scaleX)} cm")
-                        Text("H: ${String.format("%.2f", item.furniture.height * item.item.scaleY)} cm")
-                        Text("D: ${String.format("%.2f", item.furniture.depth * item.item.scaleZ)} cm")
+                        Text("W: ${String.format("%.2f", item.widthCm * item.scaleX)} cm")
+                        Text("H: ${String.format("%.2f", item.heightCm * item.scaleY)} cm")
+                        Text("D: ${String.format("%.2f", item.depthCm * item.scaleZ)} cm")
                     }
                 }
             }
@@ -834,7 +847,7 @@ fun SelectionToolbar(
 @Composable
 fun FurnitureDetailsPanel(
     modifier: Modifier = Modifier,
-    furniture: com.lumiroom.core.database.entity.FurnitureEntity
+    furniture: com.lumiroom.core.domain.model.RoomFurniture
 ) {
     Card(
         modifier = modifier.width(200.dp),
@@ -847,15 +860,15 @@ fun FurnitureDetailsPanel(
             Spacer(modifier = Modifier.height(8.dp))
             
             Text("Dimensions", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            Text("${furniture.width}W × ${furniture.height}H × ${furniture.depth}D", style = MaterialTheme.typography.bodySmall)
+            Text("${furniture.widthCm}W × ${furniture.heightCm}H × ${furniture.depthCm}D", style = MaterialTheme.typography.bodySmall)
             
             Spacer(modifier = Modifier.height(8.dp))
             Text("Est. Price", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             Text("₹${furniture.priceEstimate ?: "N/A"}", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold)
             
-            if (furniture.style != null) {
+            if ("" != null) {
                 Spacer(modifier = Modifier.height(8.dp))
-                AssistChip(onClick = {}, label = { Text(furniture.style!!) })
+                AssistChip(onClick = {}, label = { Text(""!!) })
             }
         }
     }

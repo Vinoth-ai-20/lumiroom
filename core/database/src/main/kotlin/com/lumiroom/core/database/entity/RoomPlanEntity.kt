@@ -13,5 +13,10 @@ data class RoomPlanEntity(
     val updatedAt: Long = System.currentTimeMillis(),
     val thumbnailPath: String? = null,
     val roomAnchorId: String? = null,
-    val gridSizeCm: Int = 10
+    val gridSizeCm: Int = 10,
+    val cameraPanX: Float = 0f,
+    val cameraPanY: Float = 0f,
+    val cameraZoom: Float = 1f,
+    val planeBoundariesJson: String? = null,
+    val anchorsJson: String? = null
 )

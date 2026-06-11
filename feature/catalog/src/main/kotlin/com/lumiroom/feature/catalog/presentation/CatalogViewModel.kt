@@ -18,6 +18,8 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
+import com.lumiroom.core.domain.SharedRoomRepository
+
 data class CatalogUiState(
     val isLoading: Boolean = false,
     val errorMessage: String? = null,
@@ -29,7 +31,12 @@ data class CatalogUiState(
 @HiltViewModel
 class CatalogViewModel @Inject constructor(
     private val repository: FurnitureRepository,
+    private val sharedRoomRepository: SharedRoomRepository
 ) : ViewModel() {
+
+    suspend fun createRoom(name: String, roomType: String): String {
+        return sharedRoomRepository.createRoom(name, roomType)
+    }
 
     private val _uiState = MutableStateFlow(CatalogUiState())
     val uiState: StateFlow<CatalogUiState> = _uiState

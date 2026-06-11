@@ -41,7 +41,7 @@ import com.lumiroom.core.database.entity.WindowEntity
         DoorEntity::class,
         WindowEntity::class,
     ],
-    version = 6,
+    version = 7,
     exportSchema = true,
 )
 abstract class LumiroomDatabase : RoomDatabase() {

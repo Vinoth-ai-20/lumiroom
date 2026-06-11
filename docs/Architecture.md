@@ -6,8 +6,7 @@
 
 **Project:** Lumiroom: AI-Assisted Mobile AR Furniture Visualization and Interior Planning System  
 **Document Standard:** ISO/IEC/IEEE 42010  
-**Version:** 1.0  
-**Date:** 2026-06-10  
+**Version:** 2.0  
 
 [⬅ Back to README](../README.md) | [Next: C4 Architecture](C4Architecture.md)
 
@@ -20,6 +19,7 @@ The architecture of Lumiroom is driven by three core philosophies:
 1. **Unidirectional Data Flow (UDF)**: State flows down, events flow up. The UI is a pure function of the state.
 2. **Offline-First Robustness**: The application must never block the UI waiting for a network request. All changes are written to a local database first.
 3. **Separation of Concerns**: Strict boundary enforcement between the UI (Compose), Domain (Use Cases), and Data (Repositories) layers via Clean Architecture.
+4. **Shared State Centralization**: Both AR and 2D canvas paradigms rely on a single, shared source of truth (`RoomState`).
 
 ---
 
@@ -31,22 +31,39 @@ The architecture of Lumiroom is driven by three core philosophies:
 | ADR-02 | **Room + Firestore Hybrid** | Relying entirely on Firestore limits AR performance in low-connectivity. SQLite ensures instant rendering. | Accepted |
 | ADR-03 | **Hilt Dependency Injection** | Hilt integrates cleanly with ViewModels and Navigation Compose, providing compile-time safety. | Accepted |
 | ADR-04 | **Jetpack Compose UI** | Eliminates XML overhead and enforces UDF state management natively. | Accepted |
+| ADR-05 | **Shared `RoomState`** | AR and 2D planner share a single `RoomStateManager` to ensure instantaneous synchronization across paradigms. | Accepted |
 
 ---
 
-## 3. Quality Attributes
+## 3. Subsystem Architecture
 
-- **Maintainability**: Enforced via multi-module architecture (`app`, `core`, `feature:ar`, `feature:voice`).
-- **Testability**: Interfaces are heavily used in the Data layer, allowing Mockk-based unit testing for ViewModels.
-- **Performance**: Heavy rendering tasks are offloaded to native C++ Filament libraries.
+Lumiroom is composed of several high-level, semi-autonomous subsystems that orchestrate data flow.
+
+### 3.1 Shared State Subsystem (`core/domain`)
+The `RoomStateManager` acts as the reactive brain of a room design session. 
+- It maintains the unified `RoomState` containing all entities (Furniture, Walls, Boundaries, Selections).
+- It prevents logic duplication between AR and 2D features.
+
+### 3.2 AR Subsystem (`feature/ar`)
+Powered by ARCore and SceneView.
+- `LumiroomArSessionManager`: Manages AR hit tests, plane detection, anchors, and camera transforms.
+- Converts 3D physical coordinates into the logical `RoomCoordinateSystem`.
+
+### 3.3 2D Planner Subsystem (`feature/room-planner`)
+A top-down 2D canvas editor.
+- Built entirely in Compose Canvas.
+- Re-renders instantly based on emissions from the `RoomStateManager`.
+- Supports pan, zoom, and interactive object selection.
+
+### 3.4 Synchronization Layer
+`SyncManager` (`core/domain/sync`) handles bidirectional background synchronization between local `Room` databases and `Firestore`. It uses WorkManager for reliable scheduling when offline.
 
 ---
 
 ## 4. Patterns Used
 
-### 4.1 MVVM (Model-View-ViewModel)
-
-ViewModels act as StateHolders, exposing `StateFlow` and handling `Events`.
+### 4.1 MVI / MVVM
+ViewModels act as StateHolders, exposing `StateFlow` and handling user `Events`.
 
 ```mermaid
 classDiagram
@@ -58,45 +75,52 @@ classDiagram
         -StateFlow state
         +handleEvent()
     }
-    class UseCase {
-        +execute()
+    class RoomStateManager {
+        -StateFlow~RoomState~ state
+        +dispatch(Action)
     }
     View --> ViewModel : Event
     ViewModel --> View : State
-    ViewModel --> UseCase : Intent
+    ViewModel --> RoomStateManager : Action
+    RoomStateManager --> ViewModel : Updated State
 ```
 
 ### 4.2 Repository Pattern
-
-Repositories orchestrate data between Room (Local) and Firebase (Remote).
+Repositories (`SharedRoomRepository`, `FurnitureRepository`) orchestrate data between `RoomDatabase` (Local), DataStore, and `Firestore` (Remote).
 
 ### 4.3 Dependency Injection
-
-Hilt modules provide singletons for `RoomDatabase`, `FirebaseAuth`, and Repositories.
+Hilt modules provide singletons for databases, auth, managers, and repositories across a highly modularized structure (`app`, `core:*`, `feature:*`).
 
 ---
 
-## 5. Offline-First Design
+## 5. Event Flow and State Management
+
+State management strictly follows UDF:
+
+1. **User Action**: User moves an item in the 2D planner.
+2. **Event Emission**: `RoomPlannerViewModel` calls `RoomStateManager.moveItem()`.
+3. **State Mutation**: `RoomStateManager` updates the in-memory `RoomState`.
+4. **State Emission**: Both `RoomPlannerViewModel` and `ArViewModel` instantly receive the new `RoomState` via `StateFlow`.
+5. **Persistence Trigger**: `LayoutPersistenceManager` intercepts the state change and asynchronously writes it to the local SQLite database.
 
 ```mermaid
 sequenceDiagram
-    participant UI
-    participant VM as ViewModel
-    participant Repo as PlacedItemRepository
+    participant UI as 2D / AR View
+    participant SM as RoomStateManager
+    participant Persist as LayoutPersistenceManager
     participant Room as RoomDB (Local)
     participant Sync as SyncManager
     participant FB as Firestore
     
-    UI->>VM: Move Object
-    VM->>Repo: updatePosition(x,y,z)
-    Repo->>Room: UPDATE placed_items
-    Room-->>Repo: Success
-    Repo-->>VM: Updated List
-    VM->>UI: Render New Frame instantly
+    UI->>SM: Move Object (Event)
+    SM->>SM: Mutate RoomState
+    SM-->>UI: New State Flow Emission
+    SM->>Persist: Debounced Auto-save
+    Persist->>Room: UPDATE placed_items
     
-    Note over Sync, FB: Background Thread
-    Room->>Sync: Trigger Flow Collection
-    Sync->>FB: Batch Write
+    Note over Sync, FB: Background WorkManager
+    Room->>Sync: Observe local DB change
+    Sync->>FB: Batch Cloud Write
 ```
 
 ---
@@ -105,3 +129,4 @@ sequenceDiagram
 
 - View comprehensive architecture diagrams in [C4 Architecture](C4Architecture.md).
 - View precise state handling in [State Machine Diagrams](StateMachineDiagrams.md).
+- View specific module architecture in [Repository Structure](RepositoryStructure.md).

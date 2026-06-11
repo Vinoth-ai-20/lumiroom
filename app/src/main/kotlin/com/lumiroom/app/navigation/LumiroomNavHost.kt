@@ -103,11 +103,19 @@ fun LumiroomNavHost(
                 onNavigateToDetail = { id ->
                     navController.navigate(LumiroomRoutes.furnitureDetail(id))
                 },
-                onNavigateToAr = { 
-                    navController.navigate(LumiroomRoutes.AR) {
-                        popUpTo(LumiroomRoutes.CATALOG) { saveState = true }
-                        launchSingleTop = true
-                        restoreState = true
+                onNavigateToAr = { roomId ->
+                    if (roomId != null) {
+                        navController.navigate(LumiroomRoutes.arWithRoom(roomId)) {
+                            popUpTo(LumiroomRoutes.CATALOG) { saveState = true }
+                            launchSingleTop = true
+                            restoreState = true
+                        }
+                    } else {
+                        navController.navigate(LumiroomRoutes.AR) {
+                            popUpTo(LumiroomRoutes.CATALOG) { saveState = true }
+                            launchSingleTop = true
+                            restoreState = true
+                        }
                     }
                 },
                 onNavigateToSaved = { 
@@ -147,35 +155,7 @@ fun LumiroomNavHost(
         }
 
         // ── AR ─────────────────────────────────────────────────────────────
-        composable(
-            route = LumiroomRoutes.AR,
-            arguments = listOf(androidx.navigation.navArgument("furnitureId") {
-                type = androidx.navigation.NavType.StringType
-                nullable = true
-                defaultValue = null
-            })
-        ) { backStackEntry ->
-            val furnitureId = backStackEntry.arguments?.getString("furnitureId")
-            ArScreen(
-                furnitureId = furnitureId,
-                onNavigateToCatalog = { 
-                    navController.navigate(LumiroomRoutes.CATALOG) {
-                        popUpTo(LumiroomRoutes.CATALOG) { saveState = true }
-                        launchSingleTop = true
-                        restoreState = true
-                    }
-                },
-                onNavigateToPlanner = { navController.navigate(LumiroomRoutes.ROOM_PLANNER) },
-                onNavigateToAi = { 
-                    navController.navigate(LumiroomRoutes.AI_ASSISTANT) {
-                        popUpTo(LumiroomRoutes.CATALOG) { saveState = true }
-                        launchSingleTop = true
-                        restoreState = true
-                    }
-                },
-                onNavigateBack = safeNavigateBack,
-            )
-        }
+        // Old AR route removed as ArViewModel now requires roomId
         
         composable(
             route = LumiroomRoutes.AR_WITH_ROOM,
@@ -193,7 +173,7 @@ fun LumiroomNavHost(
                         restoreState = true
                     }
                 },
-                onNavigateToPlanner = { navController.navigate(LumiroomRoutes.ROOM_PLANNER) },
+                onNavigateToPlanner = { navController.navigate(LumiroomRoutes.roomPlanner(roomId ?: "")) },
                 onNavigateToAi = { 
                     navController.navigate(LumiroomRoutes.AI_ASSISTANT) {
                         popUpTo(LumiroomRoutes.CATALOG) { saveState = true }
@@ -205,11 +185,17 @@ fun LumiroomNavHost(
             )
         }
 
-        // ── Room Planner ───────────────────────────────────────────────────
-        composable(LumiroomRoutes.ROOM_PLANNER) {
+        // 🟢 Room Planner 🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢
+        composable(
+            route = LumiroomRoutes.ROOM_PLANNER,
+            arguments = listOf(androidx.navigation.navArgument("planId") {
+                type = androidx.navigation.NavType.StringType
+            })
+        ) { backStackEntry ->
+            val planId = backStackEntry.arguments?.getString("planId")
             RoomPlannerScreen(
                 onNavigateBack = safeNavigateBack,
-                onNavigateToAr = { navController.navigate(LumiroomRoutes.AR) }
+                onNavigateToAr = { navController.navigate(LumiroomRoutes.arWithRoom(planId ?: "")) }
             )
         }
 
@@ -271,7 +257,7 @@ object LumiroomRoutes {
     const val FURNITURE_DETAIL  = "catalog/detail/{furnitureId}"
     const val AR                = "ar?furnitureId={furnitureId}"
     const val AR_WITH_ROOM      = "ar/room/{roomId}"
-    const val ROOM_PLANNER      = "room_planner"
+    const val ROOM_PLANNER      = "room_planner/{planId}"
     const val SAVED_ROOMS       = "saved_rooms"
     const val FAVORITES         = "favorites"
     const val AI_ASSISTANT      = "ai_assistant"
@@ -281,4 +267,5 @@ object LumiroomRoutes {
     fun furnitureDetail(id: String)  = "catalog/detail/$id"
     fun arWithFurniture(id: String)  = "ar?furnitureId=$id"
     fun arWithRoom(roomId: String)   = "ar/room/$roomId"
+    fun roomPlanner(planId: String)  = "room_planner/$planId"
 }

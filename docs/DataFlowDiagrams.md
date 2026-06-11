@@ -1,10 +1,9 @@
 # Data Flow Diagrams (DFD)
 
 **Project:** Lumiroom: AI-Assisted Mobile AR Furniture Visualization and Interior Planning System  
-**Version:** 1.0  
-**Date:** 2026-06-10  
+**Version:** 2.0  
 
-[⬅ Back to README](../README.md) | [Next: State Machine Diagrams](StateMachineDiagrams.md)
+[⬅ Back to Activity Diagrams](ActivityDiagrams.md) | [Next: Event Flow](EventFlow.md)
 
 ---
 
@@ -15,34 +14,62 @@ High-level data inputs and outputs.
 ```mermaid
 flowchart TD
     User((User))
-    Sys[Lumiroom AR System]
+    Sys[Lumiroom AR & 2D System]
     Cloud[(Firebase)]
     AI[(Vertex AI)]
 
-    User -- "Voice Audio / Touch Inputs" --> Sys
-    Sys -- "3D Renders / UI" --> User
+    User -- "Voice / Touch Inputs / AR Movement" --> Sys
+    Sys -- "3D AR Renders / 2D Canvas" --> User
     Sys -- "Layout Data" --> AI
-    AI -- "Health Score" --> Sys
+    AI -- "Health Score & Recommendations" --> Sys
     Sys -- "Local State Changes" --> Cloud
-    Cloud -- "Synced Data / Assets" --> Sys
+    Cloud -- "Synced Data / 3D Assets" --> Sys
 ```
 
 ---
 
-## 2. Level 1: Core Processing DFD
+## 2. Level 1: Core Processing DFD (UDF Loop)
+
+This diagram shows how user input strictly flows through the state manager to persistence, before looping back to the renderers.
 
 ```mermaid
 flowchart LR
-    UI[Compose UI]
-    VM[ViewModel]
+    UserInput[User Input (Touch/Drag)]
+    SM[RoomStateManager]
+    Repo[SharedRoomRepository]
     DB[(Room SQLite)]
-    Net[Sync Manager]
+    AR[AR Renderer]
+    P2D[2D Canvas Renderer]
 
-    UI -- "1. Dispatch Event (e.g., Move)" --> VM
-    VM -- "2. Transform & Validate" --> DB
-    DB -- "3. Emit Flow<List<Item>>" --> VM
-    VM -- "4. Update StateFlow" --> UI
+    UserInput -- "1. Dispatch Action" --> SM
+    SM -- "2. Mutate Memory State" --> SM
+    SM -- "3. Debounced Auto-save" --> Repo
+    Repo -- "4. UPSERT Entities" --> DB
     
-    DB -- "5. Observe Changes" --> Net
-    Net -- "6. Batch HTTP Push" --> Cloud[(Firestore)]
+    SM -- "5. Emit StateFlow" --> AR
+    SM -- "5. Emit StateFlow" --> P2D
+```
+
+---
+
+## 3. Level 2: Component Interaction DFD
+
+A deeper look at the data flow during a synchronization event.
+
+```mermaid
+flowchart TD
+    LocalDB[(Room Database)]
+    Sync[SyncManager]
+    Firestore[(Firebase Firestore)]
+    Storage[(Firebase Storage)]
+    UI[Compose UI]
+    
+    LocalDB -- "Flow<RoomModel> Emission" --> Sync
+    Sync -- "Network Available?" --> Sync
+    Sync -- "HTTP Batch Write" --> Firestore
+    Firestore -- "Acknowledge" --> Sync
+    Sync -- "Mark Synced" --> LocalDB
+    
+    UI -- "Request Asset URI" --> Storage
+    Storage -- "Download GLB" --> UI
 ```

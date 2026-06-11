@@ -54,6 +54,79 @@ data class BoundingBox(val left: Float, val top: Float, val right: Float, val bo
     }
 }
 
+data class RotatedRect(val center: Point2D, val width: Float, val height: Float, val rotationDegrees: Float) {
+    fun getCorners(): List<Point2D> {
+        val rad = Math.toRadians(rotationDegrees.toDouble()).toFloat()
+        val cos = kotlin.math.cos(rad)
+        val sin = kotlin.math.sin(rad)
+        val hw = width / 2f
+        val hh = height / 2f
+
+        val dx1 = hw * cos - hh * sin
+        val dy1 = hw * sin + hh * cos
+        val dx2 = -hw * cos - hh * sin
+        val dy2 = -hw * sin + hh * cos
+
+        return listOf(
+            Point2D(center.x + dx1, center.y + dy1),
+            Point2D(center.x + dx2, center.y + dy2),
+            Point2D(center.x - dx1, center.y - dy1),
+            Point2D(center.x - dx2, center.y - dy2)
+        )
+    }
+
+    fun contains(point: Point2D): Boolean {
+        val rad = Math.toRadians(-rotationDegrees.toDouble()).toFloat()
+        val cos = kotlin.math.cos(rad)
+        val sin = kotlin.math.sin(rad)
+        val dx = point.x - center.x
+        val dy = point.y - center.y
+        val localX = dx * cos - dy * sin
+        val localY = dx * sin + dy * cos
+        return kotlin.math.abs(localX) <= width / 2f && kotlin.math.abs(localY) <= height / 2f
+    }
+
+    fun intersects(other: RotatedRect): Boolean {
+        val c1 = getCorners()
+        val c2 = other.getCorners()
+        val axes = getAxes(c1) + getAxes(c2)
+
+        for (axis in axes) {
+            val (min1, max1) = project(c1, axis)
+            val (min2, max2) = project(c2, axis)
+            if (max1 < min2 || max2 < min1) {
+                return false // Separating axis found
+            }
+        }
+        return true
+    }
+
+    private fun getAxes(corners: List<Point2D>): List<Point2D> {
+        return listOf(
+            getNormal(corners[0], corners[1]),
+            getNormal(corners[1], corners[2])
+        )
+    }
+
+    private fun getNormal(p1: Point2D, p2: Point2D): Point2D {
+        val dx = p2.x - p1.x
+        val dy = p2.y - p1.y
+        val len = hypot(dx, dy)
+        return Point2D(-dy / len, dx / len)
+    }
+
+    private fun project(corners: List<Point2D>, axis: Point2D): Pair<Float, Float> {
+        var min = Float.MAX_VALUE
+        var max = -Float.MAX_VALUE
+        for (corner in corners) {
+            val projection = corner.x * axis.x + corner.y * axis.y
+            if (projection < min) min = projection
+            if (projection > max) max = projection
+        }
+        return Pair(min, max)
+    }
+}
+
 /**
  * Returns the intersection point of two line segments, or null if they do not intersect.
  */

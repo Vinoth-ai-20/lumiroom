@@ -1,7 +1,7 @@
 package com.lumiroom.feature.ar.presentation
 
-import com.lumiroom.core.database.entity.FloorPlanItemEntity
-import com.lumiroom.core.database.relation.FloorPlanItemWithFurniture
+import com.lumiroom.core.domain.model.RoomFurniture
+import com.lumiroom.core.domain.model.AnchorData
 
 /**
  * Immutable UI state for the AR screen.
@@ -19,8 +19,9 @@ data class ArUiState(
     val planeCount: Int = 0,
 
     // 📦 Placed Items 📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦📦
-    val placedItems: List<FloorPlanItemWithFurniture> = emptyList(),
+    val placedItems: List<RoomFurniture> = emptyList(),
     val roomAnchorId: String? = null,
+    val anchors: List<AnchorData> = emptyList(),
     val selectedItemIds: Set<String> = emptySet(),
     val lockedItemIds: Set<String> = emptySet(),
     val hiddenItemIds: Set<String> = emptySet(),
@@ -61,16 +62,17 @@ data class ArUiState(
 ) {
     // ── Analytics (Computed) ──────────────────────────────────────────────────
     val totalCostEstimate: Double
-        get() = placedItems.filter { it.item.id !in hiddenItemIds }.sumOf { it.furniture.priceEstimate ?: 0.0 }
+        get() = placedItems.filter { it.id !in hiddenItemIds }.sumOf { it.priceEstimate ?: 0.0 }
     val totalItemCount: Int
-        get() = placedItems.count { it.item.id !in hiddenItemIds }
+        get() = placedItems.count { it.id !in hiddenItemIds }
 }
 
 enum class InteractionMode {
     IDLE,
     MOVE,
     ROTATE,
-    SCALE
+    SCALE,
+    DEFINE_ROOM
 }
 
 /**

@@ -1,49 +1,42 @@
 package com.lumiroom.feature.ar.presentation
 
+import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.lumiroom.core.common.dispatchers.Dispatcher
 import com.lumiroom.core.common.dispatchers.LumiroomDispatcher
-import dagger.hilt.android.lifecycle.HiltViewModel
-import kotlinx.coroutines.CoroutineDispatcher
-import kotlinx.coroutines.flow.MutableSharedFlow
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.SharedFlow
-import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asSharedFlow
-import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.firstOrNull
-import kotlinx.coroutines.flow.update
-import kotlinx.coroutines.launch
-import javax.inject.Inject
-
-import com.lumiroom.core.domain.FurnitureSelectionManager
-import com.lumiroom.core.domain.RoomAnalyticsManager
-import com.lumiroom.core.domain.LayoutPersistenceManager
 import com.lumiroom.core.database.repository.FurnitureRepository
+import com.lumiroom.core.domain.LayoutPersistenceManager
+import com.lumiroom.core.domain.RoomAnalyticsManager
+import com.lumiroom.core.domain.RoomStateManager
+import com.lumiroom.core.domain.SharedRoomRepository
+import com.lumiroom.core.domain.model.RoomFurniture
+import com.lumiroom.core.domain.model.SelectionState
 import com.lumiroom.feature.voice.CommandParser
 import com.lumiroom.feature.voice.VoiceCommand
 import com.lumiroom.feature.voice.VoiceCommandExecutor
 import com.lumiroom.feature.voice.VoiceCommandManager
 import com.lumiroom.feature.voice.VoiceResult
-import androidx.lifecycle.SavedStateHandle
-import com.lumiroom.core.database.dao.RoomPlanDao
-import com.lumiroom.core.domain.SharedRoomRepository
-import com.lumiroom.core.database.entity.FloorPlanItemEntity
-import com.lumiroom.core.database.relation.FloorPlanItemWithFurniture
-import kotlinx.coroutines.flow.combine
+import com.lumiroom.feature.ar.domain.CloudAnchorManager
+import com.lumiroom.core.domain.model.RoomWall
+import com.lumiroom.core.domain.model.Point2DData
+import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.flow.*
+import kotlinx.coroutines.launch
+import javax.inject.Inject
 
 @HiltViewModel
 class ArViewModel @Inject constructor(
     private val savedStateHandle: SavedStateHandle,
-    private val roomPlanDao: RoomPlanDao,
+    private val roomStateManager: RoomStateManager,
     private val sharedRoomRepository: SharedRoomRepository,
-    private val selectionManager: FurnitureSelectionManager,
     private val analyticsManager: RoomAnalyticsManager,
     private val layoutPersistenceManager: LayoutPersistenceManager,
     private val furnitureRepository: FurnitureRepository,
     private val voiceCommandManager: VoiceCommandManager,
     private val commandParser: CommandParser,
+    private val cloudAnchorManager: CloudAnchorManager,
     @Dispatcher(LumiroomDispatcher.IO) private val ioDispatcher: CoroutineDispatcher,
 ) : ViewModel(), VoiceCommandExecutor {
 
@@ -53,62 +46,40 @@ class ArViewModel @Inject constructor(
     private val _events = MutableSharedFlow<ArViewEvent>()
     val events: SharedFlow<ArViewEvent> = _events.asSharedFlow()
 
-    private val undoStack = ArrayDeque<ArAction>()
-    private val redoStack = ArrayDeque<ArAction>()
+    private var lastCornerNode: Point2DData? = null
 
     init {
-        // Collect selection state
-        viewModelScope.launch {
-            combine(
-                selectionManager.selectedItemIds,
-                selectionManager.lockedItemIds,
-                selectionManager.hiddenItemIds
-            ) { selected, locked, hidden ->
-                _uiState.update { 
-                    it.copy(
-                        selectedItemIds = selected,
-                        lockedItemIds = locked,
-                        hiddenItemIds = hidden
-                    )
-                }
-            }.collect {}
-        }
-        
         layoutPersistenceManager.startAutoSaveLoop()
         
         viewModelScope.launch(ioDispatcher) {
             val roomId = savedStateHandle.get<String>("roomId") ?: savedStateHandle.get<String>("planId")
-            
-            val activeRoomId = if (roomId == null) {
-                val newPlan = com.lumiroom.core.database.entity.RoomPlanEntity(name = "Untitled AR Session")
-                roomPlanDao.insertRoomPlan(newPlan)
-                newPlan.id
-            } else {
-                roomId
-            }
+            val activeRoomId = roomId ?: return@launch
             
             _uiState.update { it.copy(currentRoomDesignId = activeRoomId) }
             
-            try {
-                roomPlanDao.getRoomPlanWithDetails(activeRoomId).collect { roomWithItems ->
-                    if (roomWithItems != null) {
-                        val roomName = roomWithItems.roomPlan.name
-                        _uiState.update { it.copy(currentRoomName = roomName, roomAnchorId = roomWithItems.roomPlan.roomAnchorId) }
-                        
-                        val itemsWithFurniture = roomWithItems.items
-                        val lockedIds = itemsWithFurniture.filter { it.item.isLocked }.map { it.item.id }.toSet()
-                        val hiddenIds = itemsWithFurniture.filter { !it.item.isVisible }.map { it.item.id }.toSet()
-                        _uiState.update { state -> 
-                            state.copy(
-                                placedItems = itemsWithFurniture,
-                                lockedItemIds = lockedIds,
-                                hiddenItemIds = hiddenIds
-                            )
-                        }
+            // Fetch initial state from DB if not already initialized
+            val dbState = sharedRoomRepository.getRoomState(activeRoomId)
+            if (dbState != null) {
+                roomStateManager.initialize(dbState)
+            }
+            
+            // Observe the unified room model
+            roomStateManager.roomModel.collect { model ->
+                if (model != null) {
+                    _uiState.update { state -> 
+                        state.copy(
+                            currentRoomName = model.name,
+                            roomAnchorId = model.roomAnchorId,
+                            anchors = model.anchors,
+                            placedItems = model.furniture,
+                            selectedItemIds = model.selectionState.selectedItemIds,
+                            lockedItemIds = model.selectionState.lockedItemIds,
+                            hiddenItemIds = model.selectionState.hiddenItemIds,
+                            canUndo = roomStateManager.canUndo,
+                            canRedo = roomStateManager.canRedo
+                        )
                     }
                 }
-            } catch (e: Exception) {
-                android.util.Log.e("ArViewModel", "Failed to load room", e)
             }
         }
     }
@@ -144,11 +115,13 @@ class ArViewModel @Inject constructor(
         _uiState.update { it.copy(sessionState = ArSessionState.Error(reason)) }
     }
     
-    fun setRoomAnchor(anchorId: String) {
-        viewModelScope.launch(ioDispatcher) {
-            val planId = _uiState.value.currentRoomDesignId ?: return@launch
-            sharedRoomRepository.updateRoomAnchor(planId, anchorId)
-            _uiState.update { it.copy(roomAnchorId = anchorId) }
+    fun setRoomAnchor(anchorId: String, pose: com.lumiroom.core.domain.model.PoseData) {
+        roomStateManager.updateState { 
+            val newAnchor = com.lumiroom.core.domain.model.AnchorData(id = anchorId, pose = pose)
+            it.copy(
+                roomAnchorId = anchorId,
+                anchors = it.anchors.filter { a -> a.id != anchorId } + newAnchor
+            )
         }
     }
 
@@ -163,78 +136,104 @@ class ArViewModel @Inject constructor(
         viewModelScope.launch(ioDispatcher) {
             _uiState.update { it.copy(isLoadingModel = true, showTapToPlaceHint = false) }
 
-            val planId = _uiState.value.currentRoomDesignId ?: return@launch
-            
-            // Using hitPosY as Z elevation in 2D space, hitPosZ as Y depth
-            val itemEntity = FloorPlanItemEntity(
-                id = instanceId,
-                planId = planId,
-                furnitureId = furnitureId,
-                posX = hitPosX,
-                posY = hitPosZ, // Note: In AR hitPosZ is depth (Y in 2D)
-                posZ = hitPosY, // hitPosY is height (Z in 2D)
-                rotation = rotY, // Rough yaw conversion
-                scaleX = 1f, scaleY = 1f, scaleZ = 1f,
-                isLocked = false, isVisible = true
-            )
-            
-            sharedRoomRepository.addFurniture(planId, itemEntity)
-            
             val furnitureModel = furnitureRepository.getFurnitureById(furnitureId).firstOrNull()
             if (furnitureModel != null) {
-                val furnitureEntity = com.lumiroom.core.database.entity.FurnitureEntity(
-                    id = furnitureModel.id,
+                val newFurniture = RoomFurniture(
+                    id = instanceId,
+                    furnitureId = furnitureId,
+                    positionX = hitPosX,
+                    positionY = hitPosZ, // Y depth is mapped to Z
+                    positionZ = hitPosY, // Height Z is mapped to Y
+                    rotation = rotY,
+                    scaleX = 1f, scaleY = 1f, scaleZ = 1f,
+                    widthCm = furnitureModel.width * 100f,
+                    depthCm = furnitureModel.depth * 100f,
+                    heightCm = furnitureModel.height * 100f,
                     name = furnitureModel.name,
                     category = furnitureModel.category,
-                    description = furnitureModel.description,
-                    width = furnitureModel.width,
-                    depth = furnitureModel.depth,
-                    height = furnitureModel.height,
-                    priceEstimate = furnitureModel.priceEstimate,
                     modelPath = furnitureModel.modelPath,
                     thumbnailPath = furnitureModel.thumbnailPath,
-                    style = furnitureModel.style,
-                    isDownloaded = furnitureModel.isDownloaded,
-                    isFavorite = furnitureModel.isFavorite
+                    priceEstimate = furnitureModel.priceEstimate
                 )
-                val fullItem = FloorPlanItemWithFurniture(itemEntity, furnitureEntity)
-                undoStack.addLast(ArAction.Place(fullItem))
-                redoStack.clear()
+                
+                roomStateManager.updateState { model ->
+                    model.copy(furniture = model.furniture + newFurniture)
+                }
             }
 
-            _uiState.update { state ->
-                state.copy(
-                    isLoadingModel = false,
-                    canUndo = true,
-                    canRedo = false,
-                    errorMessage = null
-                )
-            }
+            _uiState.update { it.copy(isLoadingModel = false, errorMessage = null) }
         }
     }
 
     // ── Selection ─────────────────────────────────────────────────────────────
 
     fun onItemSelected(itemId: String?, multiSelect: Boolean = false) {
-        if (itemId == null) {
-            selectionManager.clearSelection()
-            _uiState.update { it.copy(interactionMode = InteractionMode.IDLE) }
-        } else {
-            selectionManager.selectItem(itemId, multiSelect)
-            _uiState.update { it.copy(interactionMode = InteractionMode.IDLE) }
+        roomStateManager.updateStateTransient { model ->
+            val newSelection = if (itemId == null) {
+                emptySet()
+            } else if (multiSelect) {
+                model.selectionState.selectedItemIds + itemId
+            } else {
+                setOf(itemId)
+            }
+            model.copy(selectionState = model.selectionState.copy(selectedItemIds = newSelection))
         }
+        _uiState.update { it.copy(interactionMode = InteractionMode.IDLE) }
     }
     
+    fun toggleMode(mode: InteractionMode) {
+        if (_uiState.value.interactionMode == mode) {
+            _uiState.update { it.copy(interactionMode = InteractionMode.IDLE) }
+            lastCornerNode = null
+        } else {
+            _uiState.update { it.copy(interactionMode = mode) }
+            lastCornerNode = null
+        }
+    }
+
     fun setInteractionMode(mode: InteractionMode) {
         _uiState.update { it.copy(interactionMode = mode) }
     }
+
+    fun onCornerPlaced(posX: Float, posZ: Float) {
+        if (_uiState.value.interactionMode != InteractionMode.DEFINE_ROOM) return
+        
+        val current = Point2DData(posX, posZ)
+        val last = lastCornerNode
+        if (last != null) {
+            val newWall = RoomWall(
+                id = java.util.UUID.randomUUID().toString(),
+                startX = last.x,
+                startY = last.y,
+                endX = current.x,
+                endY = current.y
+            )
+            roomStateManager.updateState { model ->
+                model.copy(walls = model.walls + newWall)
+            }
+        }
+        lastCornerNode = current
+    }
+
+    fun finishRoomDefinition() {
+        lastCornerNode = null
+        _uiState.update { it.copy(interactionMode = InteractionMode.IDLE) }
+    }
     
     fun toggleLock(itemId: String) {
-        selectionManager.toggleLock(itemId)
+        roomStateManager.updateStateTransient { model ->
+            val locked = model.selectionState.lockedItemIds
+            val newLocked = if (locked.contains(itemId)) locked - itemId else locked + itemId
+            model.copy(selectionState = model.selectionState.copy(lockedItemIds = newLocked))
+        }
     }
     
     fun toggleVisibility(itemId: String) {
-        selectionManager.toggleVisibility(itemId)
+        roomStateManager.updateStateTransient { model ->
+            val hidden = model.selectionState.hiddenItemIds
+            val newHidden = if (hidden.contains(itemId)) hidden - itemId else hidden + itemId
+            model.copy(selectionState = model.selectionState.copy(hiddenItemIds = newHidden))
+        }
     }
 
     // ── Management ────────────────────────────────────────────────────────────
@@ -243,16 +242,11 @@ class ArViewModel @Inject constructor(
         val itemIds = _uiState.value.selectedItemIds
         if (itemIds.isEmpty()) return
         
-        viewModelScope.launch(ioDispatcher) {
-            val planId = _uiState.value.currentRoomDesignId ?: return@launch
-            itemIds.forEach { itemId ->
-                val itemToRemove = _uiState.value.placedItems.find { it.item.id == itemId }
-                if (itemToRemove != null) {
-                    sharedRoomRepository.removeFurniture(planId, itemId)
-                    pushUndo(ArAction.Remove(itemToRemove))
-                }
-            }
-            selectionManager.clearSelection()
+        roomStateManager.updateState { model ->
+            model.copy(
+                furniture = model.furniture.filter { it.id !in itemIds },
+                selectionState = model.selectionState.copy(selectedItemIds = emptySet())
+            )
         }
     }
     
@@ -261,31 +255,18 @@ class ArViewModel @Inject constructor(
     }
 
     fun onResetTransform() {
-        viewModelScope.launch(ioDispatcher) {
-            val selectedIds = _uiState.value.selectedItemIds
-            if (selectedIds.isEmpty()) return@launch
-            
-            val planId = _uiState.value.currentRoomDesignId ?: return@launch
-            val undoActions = mutableListOf<ArAction.Transform>()
-            
-            _uiState.value.placedItems.forEach { item ->
-                if (item.item.id in selectedIds) {
-                    val newItemEntity = item.item.copy(
-                        posX = item.item.posX, // ideally reset to initial pos
-                        posY = item.item.posY,
-                        posZ = item.item.posZ,
-                        rotation = 0f,
-                        scaleX = 1f, scaleY = 1f, scaleZ = 1f
-                    )
-                    val newItem = item.copy(item = newItemEntity)
-                    undoActions.add(ArAction.Transform(item.item.id, item, newItem))
-                    sharedRoomRepository.updateFurniture(planId, newItemEntity)
+        val selectedIds = _uiState.value.selectedItemIds
+        if (selectedIds.isEmpty()) return
+        
+        roomStateManager.updateState { model ->
+            val newFurniture = model.furniture.map { item ->
+                if (item.id in selectedIds) {
+                    item.copy(rotation = 0f, scaleX = 1f, scaleY = 1f, scaleZ = 1f)
+                } else {
+                    item
                 }
             }
-            
-            undoActions.forEach { action ->
-                pushUndo(action)
-            }
+            model.copy(furniture = newFurniture)
         }
     }
 
@@ -306,75 +287,41 @@ class ArViewModel @Inject constructor(
         scaleX: Float, scaleY: Float, scaleZ: Float,
         matrixJson: String,
     ) {
-        viewModelScope.launch(ioDispatcher) {
-            val oldItem = _uiState.value.placedItems.find { it.item.id == itemId } ?: return@launch
-            val planId = _uiState.value.currentRoomDesignId ?: return@launch
-            
-            val newItemEntity = oldItem.item.copy(
-                posX = posX, posY = posZ, posZ = posY,
-                rotation = rotY,
-                scaleX = scaleX, scaleY = scaleY, scaleZ = scaleZ
-            )
-            sharedRoomRepository.updateFurniture(planId, newItemEntity)
-            
-            val newItem = oldItem.copy(item = newItemEntity)
-            pushUndo(ArAction.Transform(itemId, oldItem, newItem))
+        roomStateManager.updateState { model ->
+            val newFurniture = model.furniture.map { item ->
+                if (item.id == itemId) {
+                    item.copy(
+                        positionX = posX, 
+                        positionY = posZ, // Map Y height back to posZ (depth map)
+                        positionZ = posY, // Map Z depth back to posY (height map)
+                        rotation = rotY,
+                        scaleX = scaleX, scaleY = scaleY, scaleZ = scaleZ
+                    )
+                } else {
+                    item
+                }
+            }
+            model.copy(furniture = newFurniture)
         }
     }
 
     // ── Undo / Redo ───────────────────────────────────────────────────────────
 
-    private fun pushUndo(action: ArAction) {
-        undoStack.addLast(action)
-        if (undoStack.size > 50) undoStack.removeFirst()
-        redoStack.clear()
-        _uiState.update { it.copy(canUndo = undoStack.isNotEmpty(), canRedo = false) }
-    }
-
     fun onUndo() {
-        val action = undoStack.removeLastOrNull() ?: return
-        redoStack.addLast(action)
-        _uiState.update { it.copy(canUndo = undoStack.isNotEmpty(), canRedo = redoStack.isNotEmpty()) }
-        
-        viewModelScope.launch(ioDispatcher) {
-            val planId = _uiState.value.currentRoomDesignId ?: return@launch
-            when (action) {
-                is ArAction.Place -> {
-                    sharedRoomRepository.removeFurniture(planId, action.item.item.id)
-                }
-                is ArAction.Remove -> {
-                    sharedRoomRepository.addFurniture(planId, action.item.item)
-                }
-                is ArAction.Transform -> {
-                    sharedRoomRepository.updateFurniture(planId, action.oldItem.item)
-                }
-            }
-        }
+        roomStateManager.undo()
     }
 
     fun onRedo() {
-        val action = redoStack.removeLastOrNull() ?: return
-        undoStack.addLast(action)
-        _uiState.update { it.copy(canUndo = undoStack.isNotEmpty(), canRedo = redoStack.isNotEmpty()) }
-        
-        viewModelScope.launch(ioDispatcher) {
-            val planId = _uiState.value.currentRoomDesignId ?: return@launch
-            when (action) {
-                is ArAction.Place -> {
-                    sharedRoomRepository.addFurniture(planId, action.item.item)
-                }
-                is ArAction.Remove -> {
-                    sharedRoomRepository.removeFurniture(planId, action.item.item.id)
-                }
-                is ArAction.Transform -> {
-                    sharedRoomRepository.updateFurniture(planId, action.newItem.item)
-                }
-            }
-        }
+        roomStateManager.redo()
     }
 
     fun onSaveRoom(name: String) {
-        // Auto saved
+        viewModelScope.launch(ioDispatcher) {
+            roomStateManager.roomModel.value?.let { model ->
+                sharedRoomRepository.saveRoomState(model)
+                _uiState.update { it.copy(saveSuccess = true) }
+            }
+        }
     }
 
     fun onSaveSuccessHandled() {
@@ -385,9 +332,8 @@ class ArViewModel @Inject constructor(
         val items = _uiState.value.placedItems
         val sb = StringBuilder()
         sb.appendLine("ID,Name,Category,Price Estimate,Width,Height,Depth")
-        items.forEach { item ->
-            val f = item.furniture
-            sb.appendLine("${f.id},\"${f.name}\",${f.category},${f.priceEstimate ?: 0.0},${f.width},${f.height},${f.depth}")
+        items.forEach { f ->
+            sb.appendLine("${f.furnitureId},\"${f.name}\",${f.category},${f.priceEstimate ?: 0.0},${f.widthCm},${f.heightCm},${f.depthCm}")
         }
         return sb.toString()
     }
@@ -458,16 +404,14 @@ class ArViewModel @Inject constructor(
                 }
             }
             is VoiceCommand.Remove -> {
-                val match = _uiState.value.placedItems.find { it.furniture.name.contains(command.itemName, ignoreCase = true) }
+                val match = _uiState.value.placedItems.find { it.name.contains(command.itemName, ignoreCase = true) }
                 if (match != null) {
-                    viewModelScope.launch(ioDispatcher) {
-                        val planId = _uiState.value.currentRoomDesignId ?: return@launch
-                        sharedRoomRepository.removeFurniture(planId, match.item.id)
-                        pushUndo(ArAction.Remove(match))
+                    roomStateManager.updateState { model ->
+                        model.copy(furniture = model.furniture.filter { it.id != match.id })
                     }
                 }
             }
-            is VoiceCommand.Deselect -> selectionManager.clearSelection()
+            is VoiceCommand.Deselect -> onItemSelected(null)
             is VoiceCommand.Rotate -> {
                 val selectedId = _uiState.value.selectedItemIds.firstOrNull()
                 if (selectedId != null) {
@@ -485,17 +429,6 @@ class ArViewModel @Inject constructor(
             }
         }
     }
-}
-
-/** Reversible AR actions for undo/redo history tracking. */
-sealed class ArAction {
-    data class Place(val item: FloorPlanItemWithFurniture) : ArAction()
-    data class Remove(val item: FloorPlanItemWithFurniture) : ArAction()
-    data class Transform(
-        val itemId: String,
-        val oldItem: FloorPlanItemWithFurniture,
-        val newItem: FloorPlanItemWithFurniture
-    ) : ArAction()
 }
 
 /** One-time events emitted to the UI layer. */
