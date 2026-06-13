@@ -17,8 +17,8 @@ class FurnitureRepository @Inject constructor(
         return furnitureDao.getAllFurniture().map { list -> list.map { it.toDomain() } }
     }
 
-    fun getFilteredFurniture(category: String?, query: String?): Flow<List<Furniture>> {
-        return furnitureDao.getFilteredFurniture(category, query).map { list -> list.map { it.toDomain() } }
+    fun getFilteredFurniture(category: String?, roomType: String?, query: String?): Flow<List<Furniture>> {
+        return furnitureDao.getFilteredFurniture(category, roomType, query).map { list -> list.map { it.toDomain() } }
     }
 
     fun getFavorites(): Flow<List<Furniture>> {
@@ -27,6 +27,10 @@ class FurnitureRepository @Inject constructor(
 
     fun getFurnitureById(id: String): Flow<Furniture?> {
         return furnitureDao.getFurnitureById(id).map { it?.toDomain() }
+    }
+    
+    suspend fun getFurnitureByIdOnce(id: String): Furniture? {
+        return furnitureDao.getFurnitureByIdOnce(id)?.toDomain()
     }
 
     suspend fun toggleFavorite(id: String, isFavorite: Boolean) {

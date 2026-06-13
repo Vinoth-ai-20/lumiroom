@@ -1,58 +1,48 @@
-# Project Implementation Plan and Roadmap
+# AR Voice Command Fixes and Documentation Updates
 
-**Project:** Lumiroom: AI-Assisted Mobile AR Furniture Visualization and Interior Planning System  
-**Version:** 1.0  
-**Date:** 2026-06-10  
+> [!NOTE]
+> **Asset Integration & Pricing Update (v10):**
+> Lumiroom has been updated to use a dynamic Model Discovery Engine. Hardcoded `furniture_seed.json` lists have been eliminated. Assets are automatically indexed from the `/assets/models` directory. All prices have been dynamically recalculated to reflect the realistic Indian Market pricing (₹).
 
-[⬅ Back to README](../README.md) | [Next: Testing Report](TestingReport.md)
 
----
+This document outlines the investigation and planned fixes for the AR Scene Voice Commands and documentation sync.
 
-## 1. Project Management Overview
+## User Review Required
 
-The development of Lumiroom follows an Agile methodology structured around 2-week sprints.
+Please review the proposed approach. Once approved, I will implement the fixes.
 
-### 1.1 Gantt Chart Roadmap
+## Proposed Changes
 
-```mermaid
-gantt
-    title Lumiroom Development Roadmap
-    dateFormat  YYYY-MM-DD
-    section Foundation
-    Architecture & Setup      :done,    des1, 2026-04-01, 14d
-    Database & Sync Engine    :done,    des2, 2026-04-15, 21d
-    section Core Features
-    AR Placement Engine       :done,    core1, 2026-05-06, 20d
-    Voice Command System      :active,  core2, 2026-05-26, 20d
-    section AI Integration
-    Vertex AI Room Health     :         ai1, 2026-06-15, 25d
-    section Polish
-    Asset Pipeline Automation :         pol1, 2026-07-10, 14d
-    QA & Beta Release         :         pol2, 2026-07-24, 20d
-```
+### AR Voice Command Fixes
 
-## 2. Work Breakdown Structure (WBS)
+#### [MODIFY] [ArViewModel.kt](file:///e:/projects/Lumiroom/feature/ar/src/main/kotlin/com/lumiroom/feature/ar/presentation/ArViewModel.kt)
+- **Select/Deselect**: Implement `VoiceCommand.Select` and `VoiceCommand.SelectLast` correctly.
+- **Remove Bug**: Fix `VoiceCommand.Remove` which incorrectly looks for `it.name` on `RoomFurniture` instead of `it.furnitureId`. This will use `furnitureId.contains(..., ignoreCase = true)` to find matching items.
+- **Placement Logic**: Modify `VoiceCommand.Place` so it does not arbitrarily place objects at world origin `(0, 0, -1)`. Instead, it will emit a new event `ArViewEvent.PlaceFromVoice(furnitureId)` to be handled by the UI.
 
-1. **Infrastructure**
-   - 1.1 CI/CD Pipeline
-   - 1.2 Hilt Dependency Graph
-   - 1.3 Firebase Setup
-2. **Data Layer**
-   - 2.1 Room Schema Design
-   - 2.2 Firestore Sync Manager
-3. **Domain Layer**
-   - 3.1 PlaceFurnitureUseCase
-   - 3.2 VoiceCommandParser
-4. **UI Layer**
-   - 4.1 Jetpack Compose Navigation
-   - 4.2 AR SceneView Integration
+#### [MODIFY] [ArScreen.kt](file:///e:/projects/Lumiroom/feature/ar/src/main/kotlin/com/lumiroom/feature/ar/presentation/ArScreen.kt)
+- Add `PlaceFromVoice` to the `ArViewEvent` sealed class.
+- When `PlaceFromVoice` is received, use `arSceneView.hitTest(centerOffset)` to find the real-world surface directly in front of the camera and pass the correct world coordinates back to the view model's `onPlaneTapped()`.
 
-## 3. Risk Analysis
+### Build Configuration Fix
 
-See [Risk Assessment](RiskAssessment.md) for full mitigation matrices.
+#### [MODIFY] [build.gradle.kts](file:///e:/projects/Lumiroom/feature/room-planner/build.gradle.kts)
+- The recent `VoiceCommandManager` injection caused a compilation error in `room-planner` due to the missing `:feature:voice` dependency. This has already been fixed to restore compilation.
 
-## 4. Release Plan
+### Documentation Updates
 
-- **Alpha (v0.1)**: Core AR placement with 10 built-in models. Local database only.
-- **Beta (v0.5)**: Cloud sync, 500+ models from FMP, and Voice Commands.
-- **V1.0 (Production)**: Vertex AI recommendations, full UI polish, and public Play Store release.
+#### [MODIFY] [docs/](file:///e:/projects/Lumiroom/docs/)
+- Review `SRS.md`, `C4Architecture.md`, `RoomStateArchitecture.md`, and any other documentation files.
+- Ensure all recent changes (such as meters-to-cm conversions, minimap removal, unified RoomState singleton architecture, and voice command expansions) are fully documented and accurately reflect the current repo structure.
+
+## Verification Plan
+
+### Automated Tests
+- Ensure `app:assembleDebug` builds successfully without KSP errors.
+
+### Manual Verification
+- In AR mode, say "Place a chair" and verify it appears on the plane in front of the camera, not at world origin.
+- Say "Select the chair" and verify the bounding box appears.
+- Say "Make it bigger" and verify it scales.
+- Say "Rotate left" and verify it rotates.
+- Check documentation files for consistency.

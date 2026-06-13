@@ -24,7 +24,7 @@ object AppPreferenceKeys {
     val AR_PLANE_DISPLAY        = booleanPreferencesKey("ar_plane_display")
     /** Values: "LOW" | "MEDIUM" | "HIGH" */
     val AR_SHADOW_QUALITY       = stringPreferencesKey("ar_shadow_quality")
-    /** Values: "METRIC" | "IMPERIAL" */
+    /** Values: "m" | "cm" | "mm" | "in" */
     val AR_MEASUREMENT_UNIT     = stringPreferencesKey("ar_measurement_unit")
 
     // ── Notifications & Sync ──────────────────────────────────────────────────
@@ -48,7 +48,7 @@ data class AppPreferences(
     val themeMode:               String  = "SYSTEM",
     val arPlaneDisplay:          Boolean = true,
     val arShadowQuality:         String  = "MEDIUM",
-    val arMeasurementUnit:       String  = "METRIC",
+    val arMeasurementUnit:       String  = "m",
     val notificationsEnabled:    Boolean = true,
     val autoSyncEnabled:         Boolean = true,
     val lastSelectedCategory:    String  = "",

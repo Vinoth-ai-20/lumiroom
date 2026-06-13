@@ -31,15 +31,18 @@ class LumiroomApp : Application(), Configuration.Provider {
             com.google.firebase.FirebaseApp.initializeApp(this)
             android.util.Log.d("LumiroomAppCheck", "Firebase initialized")
             val firebaseAppCheck = com.google.firebase.appcheck.FirebaseAppCheck.getInstance()
-            firebaseAppCheck.installAppCheckProviderFactory(
-                if (com.lumiroom.app.BuildConfig.DEBUG) {
-                    android.util.Log.d("LumiroomAppCheck", "Installing DebugAppCheckProviderFactory")
+            if (com.lumiroom.app.BuildConfig.DEBUG) {
+                android.util.Log.d("LumiroomAppCheck", "Installing DebugAppCheckProviderFactory")
+                firebaseAppCheck.installAppCheckProviderFactory(
                     com.google.firebase.appcheck.debug.DebugAppCheckProviderFactory.getInstance()
-                } else {
-                    android.util.Log.d("LumiroomAppCheck", "Installing PlayIntegrityAppCheckProviderFactory")
+                )
+            } else {
+                android.util.Log.d("LumiroomAppCheck", "Installing PlayIntegrityAppCheckProviderFactory")
+                firebaseAppCheck.installAppCheckProviderFactory(
                     com.google.firebase.appcheck.playintegrity.PlayIntegrityAppCheckProviderFactory.getInstance()
-                }
-            )
+                )
+            }
+            firebaseAppCheck.setTokenAutoRefreshEnabled(true)
         } catch (e: Exception) {
             android.util.Log.e("LumiroomAppCheck", "Failed to initialize App Check", e)
         }

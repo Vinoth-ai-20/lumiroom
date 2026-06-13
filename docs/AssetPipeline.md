@@ -4,9 +4,17 @@
 
 # Asset Pipeline Documentation
 
+> [!NOTE]
+> **Asset Integration & Pricing Update (v10):**
+> Lumiroom has been updated to use a dynamic Model Discovery Engine. Hardcoded `furniture_seed.json` lists have been eliminated. Assets are automatically indexed from the `/assets/models` directory. All prices have been dynamically recalculated to reflect the realistic Indian Market pricing (₹).
+>
+> **AR Synchronization & AppCheck Update (v1.1.2):**
+> Fixed Firebase AppCheck quirk where Android caches an overriding random debug token instead of parsing `strings.xml`. Resolved Filament `ModelLoader` swallowing `FileNotFoundException` by properly parsing native `file:///android_asset/` URIs without redundant prefixing.
+
+
 **Project:** Lumiroom: AI-Assisted Mobile AR Furniture Visualization and Interior Planning System  
-**Version:** 1.0  
-**Date:** 2026-06-10  
+**Version:** 1.1.2  
+**Date:** 2026-06-13  
 
 [⬅ Back to README](../README.md) | [Next: FMP Integration Guide](FMP_Integration_Guide.md)
 
@@ -66,3 +74,10 @@ stateDiagram-v2
 ## 5. Naming Conventions
 
 All assets must follow the `Category_Brand_ModelName.glb` structure (e.g., `Sofa_Ikea_Kivik.glb`).
+
+
+## Asset-Driven Catalog Architecture (v12)
+The furniture catalog is now completely dynamically generated from local assets.
+No manual registration, hardcoded arrays, or JSON seeding is required.
+During the application startup (specifically database creation), the system automatically scans the assets/models/ and assets/thumbnails/ directories.
+It uses the naming convention roomType_category_variant.glb (e.g. bathroom_bathtub_01.glb) to dynamically generate metadata, categories, pricing, and tags. This forms the single source of truth for the entire application catalog, powering search, filters, and AR persistence.

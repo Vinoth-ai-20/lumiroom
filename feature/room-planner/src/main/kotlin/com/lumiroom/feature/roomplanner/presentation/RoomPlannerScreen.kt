@@ -23,6 +23,8 @@ import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.ViewInAr
+import androidx.compose.material.icons.filled.Mic
+import androidx.compose.material.icons.filled.MicOff
 import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowLeft
@@ -34,6 +36,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
+import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.Clear
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
@@ -44,6 +50,8 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
@@ -141,11 +149,6 @@ fun RoomPlannerScreen(
                             selected = uiState.mode == InteractionMode.MEASURE,
                             onClick = { viewModel.setInteractionMode(InteractionMode.MEASURE) },
                             label = { Text("Measure") }
-                        )
-                        FilterChip(
-                            selected = uiState.mode == InteractionMode.REMOVE,
-                            onClick = { viewModel.setInteractionMode(InteractionMode.REMOVE) },
-                            label = { Text("Remove") }
                         )
                     }
                     Row(
@@ -362,7 +365,7 @@ fun RoomPlannerScreen(
                             )
                             if (uiState.mode == InteractionMode.MEASURE) {
                                 val distanceCm = startPt.distanceTo(endPt)
-                                val text = "${distanceCm.roundToInt()} cm"
+                                val text = formatDistance(distanceCm, uiState.measurementUnit)
                                 drawIntoCanvas { canvas ->
                                     val paint = android.graphics.Paint().apply {
                                         textSize = 40f / uiState.zoom
@@ -385,8 +388,8 @@ fun RoomPlannerScreen(
                         for (f in uiState.furniture.sortedBy { it.zIndex }) {
                             withTransform({
                                 translate(f.position.x, f.position.y)
-                                rotate(f.rotation)
-                                scale(f.scale, f.scale)
+                                rotate(f.rotation, pivot = Offset.Zero)
+                                scale(f.scale, f.scale, pivot = Offset.Zero)
                             }) {
                                 val isFocused = uiState.focusedPlacedFurnitureIds.contains(f.id)
                                 val baseColor = Color(f.colorHex)
@@ -428,70 +431,7 @@ fun RoomPlannerScreen(
                     }
                 }
             }
-            
-            // Minimap Overlay
-            if (uiState.walls.isNotEmpty() || uiState.furniture.isNotEmpty()) {
-                val allXs = uiState.walls.flatMap { listOf(it.segment.start.x, it.segment.end.x) } + uiState.furniture.map { it.position.x }
-                val allYs = uiState.walls.flatMap { listOf(it.segment.start.y, it.segment.end.y) } + uiState.furniture.map { it.position.y }
-                val minX = allXs.minOrNull() ?: 0f
-                val maxX = allXs.maxOrNull() ?: 100f
-                val minY = allYs.minOrNull() ?: 0f
-                val maxY = allYs.maxOrNull() ?: 100f
-                val roomWidth = maxOf(maxX - minX, 100f) * 1.2f
-                val roomHeight = maxOf(maxY - minY, 100f) * 1.2f
-                val cx = (minX + maxX) / 2f
-                val cy = (minY + maxY) / 2f
 
-                androidx.compose.material3.Card(
-                    modifier = Modifier
-                        .align(Alignment.BottomEnd)
-                        .padding(16.dp)
-                        .size(120.dp),
-                    elevation = androidx.compose.material3.CardDefaults.cardElevation(defaultElevation = 4.dp),
-                    colors = androidx.compose.material3.CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.9f))
-                ) {
-                    Canvas(modifier = Modifier.fillMaxSize().padding(8.dp)) {
-                        val scaleX = size.width / roomWidth
-                        val scaleY = size.height / roomHeight
-                        val scale = minOf(scaleX, scaleY)
-
-                        withTransform({
-                            translate(size.width / 2f, size.height / 2f)
-                            scale(scale, scale)
-                            translate(-cx, -cy)
-                        }) {
-                            for (wall in uiState.walls) {
-                                drawLine(
-                                    color = Color.DarkGray,
-                                    start = Offset(wall.segment.start.x, wall.segment.start.y),
-                                    end = Offset(wall.segment.end.x, wall.segment.end.y),
-                                    strokeWidth = maxOf(wall.thicknessCm, 2f / scale),
-                                    cap = StrokeCap.Round
-                                )
-                            }
-                            for (door in uiState.doors) {
-                                drawLine(
-                                    color = Color.Cyan,
-                                    start = Offset(door.segment.start.x, door.segment.start.y),
-                                    end = Offset(door.segment.end.x, door.segment.end.y),
-                                    strokeWidth = maxOf(door.thicknessCm, 2f / scale),
-                                    cap = StrokeCap.Round
-                                )
-                            }
-                            for (window in uiState.windows) {
-                                drawLine(
-                                    color = Color.LightGray,
-                                    start = Offset(window.segment.start.x, window.segment.start.y),
-                                    end = Offset(window.segment.end.x, window.segment.end.y),
-                                    strokeWidth = maxOf(window.thicknessCm, 2f / scale),
-                                    cap = StrokeCap.Round
-                                )
-                            }
-                        }
-                    }
-                }
-            }
-            
             // Area and Perimeter Overlay
             Card(
                 modifier = Modifier
@@ -500,8 +440,12 @@ fun RoomPlannerScreen(
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.9f))
             ) {
                 Column(modifier = Modifier.padding(12.dp)) {
-                    Text("Area: ${"%.1f".format(uiState.roomAreaSqM)} m²", style = MaterialTheme.typography.bodyMedium)
-                    Text("Perimeter: ${"%.1f".format(uiState.roomPerimeterM)} m", style = MaterialTheme.typography.bodyMedium)
+                    Text("Area: ${formatArea(uiState.roomAreaSqM, uiState.measurementUnit)}", style = MaterialTheme.typography.bodyMedium)
+                    Text("Perimeter: ${formatDistance(uiState.roomPerimeterM * 100f, uiState.measurementUnit)}", style = MaterialTheme.typography.bodyMedium)
+                    if (uiState.totalPriceEstimate > 0.0) {
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text("Total: ${formatCurrency(uiState.totalPriceEstimate)}", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
+                    }
                 }
             }
 
@@ -517,6 +461,38 @@ fun RoomPlannerScreen(
                 }
                 SmallFloatingActionButton(onClick = { viewModel.resetZoom() }) {
                     Text("1:1", modifier = Modifier.padding(8.dp))
+                }
+            }
+
+            // Voice Command Mic Button
+            FloatingActionButton(
+                onClick = { viewModel.toggleVoiceListening() },
+                modifier = Modifier
+                    .align(Alignment.BottomEnd)
+                    .padding(16.dp),
+                containerColor = if (uiState.isVoiceListening) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary,
+                contentColor = if (uiState.isVoiceListening) MaterialTheme.colorScheme.onError else MaterialTheme.colorScheme.onPrimary
+            ) {
+                Icon(if (uiState.isVoiceListening) Icons.Default.MicOff else Icons.Default.Mic, contentDescription = "Voice Command")
+            }
+
+            // Voice Command Transcript Overlay
+            AnimatedVisibility(
+                visible = uiState.isVoiceListening || uiState.voiceTranscript != null,
+                enter = fadeIn(),
+                exit = fadeOut(),
+                modifier = Modifier
+                    .align(Alignment.TopCenter)
+                    .padding(top = 16.dp)
+            ) {
+                Card(
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.9f))
+                ) {
+                    Text(
+                        text = uiState.voiceTranscript ?: "Listening...",
+                        modifier = Modifier.padding(16.dp),
+                        style = MaterialTheme.typography.bodyLarge
+                    )
                 }
             }
             
@@ -545,15 +521,15 @@ fun RoomPlannerScreen(
                     
                     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            Button(onClick = { viewModel.rotateFocusedFurniture(-15f) }) { Text("↺") }
-                            Button(onClick = { viewModel.rotateFocusedFurniture(15f) }) { Text("↻") }
-                            Button(onClick = { viewModel.scaleFocusedFurniture(-0.1f) }) { Text("-") }
-                            Button(onClick = { viewModel.scaleFocusedFurniture(0.1f) }) { Text("+") }
+                            IconButton(onClick = { viewModel.rotateFocusedFurniture(-15f) }) { Icon(Icons.Filled.Refresh, contentDescription = "Rotate Left") }
+                            IconButton(onClick = { viewModel.rotateFocusedFurniture(15f) }) { Icon(Icons.Filled.Refresh, contentDescription = "Rotate Right", modifier = Modifier.graphicsLayer(scaleX = -1f)) }
+                            IconButton(onClick = { viewModel.scaleFocusedFurniture(-0.1f) }) { Icon(Icons.Filled.Clear, contentDescription = "Scale Down") }
+                            IconButton(onClick = { viewModel.scaleFocusedFurniture(0.1f) }) { Icon(Icons.Filled.Add, contentDescription = "Scale Up") }
                         }
                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            Button(onClick = { viewModel.bringFurnitureForward() }) { Text("↑ Layer") }
-                            Button(onClick = { viewModel.sendFurnitureBackward() }) { Text("↓ Layer") }
-                            Button(onClick = { viewModel.deleteFocusedItem() }, colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)) { Text("Delete") }
+                            IconButton(onClick = { viewModel.bringFurnitureForward() }) { Icon(Icons.Filled.KeyboardArrowUp, contentDescription = "Layer Up") }
+                            IconButton(onClick = { viewModel.sendFurnitureBackward() }) { Icon(Icons.Filled.KeyboardArrowDown, contentDescription = "Layer Down") }
+                            IconButton(onClick = { viewModel.deleteFocusedItem() }) { Icon(Icons.Filled.Delete, contentDescription = "Delete", tint = MaterialTheme.colorScheme.error) }
                         }
                     }
                 }
@@ -605,4 +581,28 @@ fun RoomPlannerScreen(
             }
         }
     }
+}
+
+fun formatDistance(cm: Float, unit: String): String {
+    return when (unit) {
+        "m" -> "${"%.2f".format(cm / 100f)} m"
+        "cm" -> "${cm.roundToInt()} cm"
+        "mm" -> "${(cm * 10f).roundToInt()} mm"
+        "in" -> "${"%.1f".format(cm / 2.54f)} in"
+        else -> "${"%.2f".format(cm / 100f)} m"
+    }
+}
+
+fun formatArea(sqM: Float, unit: String): String {
+    return when (unit) {
+        "m", "cm", "mm" -> "${"%.1f".format(sqM)} m²"
+        "in" -> "${"%.1f".format(sqM * 10.7639f)} sq ft" // Using sq ft for area if unit is inches
+        else -> "${"%.1f".format(sqM)} m²"
+    }
+}
+
+fun formatCurrency(amount: Double): String {
+    val format = java.text.NumberFormat.getCurrencyInstance(java.util.Locale("en", "IN"))
+    format.maximumFractionDigits = 0
+    return format.format(amount)
 }

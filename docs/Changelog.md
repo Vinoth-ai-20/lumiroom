@@ -1,8 +1,67 @@
 # Changelog
 
+## [1.1.2] - 2026-06-13
+
+### Fixed
+- **Firebase App Check Quirk**: Fixed an issue where the AI Assistant failed to authenticate because the Android AppCheck SDK enforced an internally cached debug token instead of reading from `strings.xml`. Resolved by manually syncing the generated token in the Firebase Console.
+- **Filament Rendering Silence**: Resolved an issue where 3D models were completely invisible in AR. The `ModelLoader` coroutine was silently swallowing exceptions due to a malformed `file:///android_asset/` URI that incorrectly included a redundant `models/` prefix.
+
+### Changed
+- **Database Diagnostic Cleanup**: Purged leftover diagnostic database dumps (`db.b64`, `db.sqlite`) from the project root to maintain a clean workspace.
+
+## [1.1.1] - 2026-06-13
+
+### Fixed
+- **AR Placement Bug**: Fixed an issue where tapping to place furniture in AR failed due to `RoomModel` not initializing when opened directly from the catalog.
+- **AR Anchor Syncing**: AR placement anchor data (`PoseData`) is now correctly saved into `RoomState`, preventing drift or placement failures.
+- **2D/AR Axis Sync**: Corrected the axis mapping bug where height and depth axes were swapped when generating generic 3D objects from 2D coordinates.
+- **Asset Filtering**: Normalised the dynamic asset discovery string conversion so that `livingroom` correctly populates under the "Living Room" catalog filter.
+- **App Check Token**: Enforced the `DebugAppCheckProviderFactory` initialization when running debug variants, restoring AI assistant functionality.
+
+### Changed
+- **Documentation**: Synchronized all major architecture documents to reflect the corrected AppCheck, Axis synchronization, and AR tracking state logic.
+
+
+## [1.1.0] - 2026-06-12
+
+### Added
+- **Dynamic Asset Discovery**: Replaced hardcoded catalog JSON with an automated asset parser that crawls `/assets/models/`.
+- **Indian Market Pricing**: Embedded an algorithmic pricing strategy bounded by realistic Indian Rupee (₹) limits.
+
+### Changed
+- **Database Architecture**: Bumped `LumiroomDatabase` version to 10 and triggered a destructive migration to purge obsolete catalog and project entries.
+
+
+## [1.0.1] - 2026-06-12
+
+### Fixed
+- **AR Rotation Bug**: Object rotation is no longer constrained to [-90, 90]. Rotations are now absolutely tracked in `RoomState`, preventing gimbal lock jumps when converted through Quaternions.
+- **AR Duplication Bug**: Fixed an issue where moving existing AR items duplicated them on the next load. AR Anchor detachments and re-assignments are now correctly synced back to the `RoomModel.anchors`.
+- **Firebase App Check**: Fixed AI Assistant Firebase access by enforcing the `PlayIntegrityAppCheckProviderFactory` for all variants and enabling auto token refresh.
+
+### Changed
+- **2D Planner UI**: Replaced text buttons with scalable icon buttons (`Refresh`, `Clear`, `Add`, `Delete`) in the furniture toolbar. Removed the redundant 'Remove' selection mode.
+- **About Page**: Updated Settings About screen to include Academic Project Information (Vinoth M, Sri Krishna Engineering College).
+
+
 **Project:** Lumiroom: AI-Assisted Mobile AR Furniture Visualization and Interior Planning System  
 
 [⬅ Back to README](../README.md) | [Next: Future Scope](FutureScope.md)
+
+---
+
+
+## [2.1.0] - 2026-06-12
+
+### Added
+- **Coordinate Synchronization**: Resolved discrepancy between 2D planner (centimeters) and AR scene (meters). `RoomStateManager` and database entities now standardize on meters for all properties (`positionX`, `positionY`, `positionZ`, `startX`, `endX`, etc.), while the 2D planner UI maps to and from centimeters for rendering.
+- **Total Price Estimate**: Added a total price estimate overlay to the 2D Planner UI, formatting in Indian Rupees (₹).
+- **Home Page Filters**: Added `Room Type` categorization and filtering on the Catalog Screen.
+- **Price Synchronization**: Standardized price data structure in `furniture_seed.json` with accurate INR prices. Added `room_type` metadata.
+
+### Fixed
+- Fixed bug where furniture added in the 2D planner would not appear in the AR scene due to being out-of-bounds (interpreting cm as meters).
+- Restored AR scene stability when transitioning from the 2D Planner.
 
 ---
 
@@ -54,3 +113,10 @@
 - Hilt Dependency Injection.
 - Jetpack Navigation Compose setup.
 - Basic AR Plane Detection using SceneView.
+
+
+## Asset-Driven Catalog Architecture (v12)
+The furniture catalog is now completely dynamically generated from local assets.
+No manual registration, hardcoded arrays, or JSON seeding is required.
+During the application startup (specifically database creation), the system automatically scans the assets/models/ and assets/thumbnails/ directories.
+It uses the naming convention roomType_category_variant.glb (e.g. bathroom_bathtub_01.glb) to dynamically generate metadata, categories, pricing, and tags. This forms the single source of truth for the entire application catalog, powering search, filters, and AR persistence.

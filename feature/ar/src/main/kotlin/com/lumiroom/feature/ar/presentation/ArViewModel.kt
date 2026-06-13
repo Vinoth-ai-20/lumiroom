@@ -55,7 +55,7 @@ class ArViewModel @Inject constructor(
         
         viewModelScope.launch(ioDispatcher) {
             val roomId = savedStateHandle.get<String>("roomId") ?: savedStateHandle.get<String>("planId")
-            val activeRoomId = roomId ?: return@launch
+            val activeRoomId = roomId ?: java.util.UUID.randomUUID().toString()
             
             _uiState.update { it.copy(currentRoomDesignId = activeRoomId) }
             
@@ -63,6 +63,16 @@ class ArViewModel @Inject constructor(
             val dbState = sharedRoomRepository.getRoomState(activeRoomId)
             if (dbState != null) {
                 roomStateManager.initialize(dbState)
+            } else {
+                val newRoom = com.lumiroom.core.domain.model.RoomModel(
+                    planId = activeRoomId,
+                    name = "New Room",
+                    walls = emptyList(),
+                    doors = emptyList(),
+                    windows = emptyList(),
+                    furniture = emptyList()
+                )
+                roomStateManager.initialize(newRoom)
             }
             
             // Observe the unified room model
@@ -134,11 +144,14 @@ class ArViewModel @Inject constructor(
         furnitureId: String,
         hitPosX: Float, hitPosY: Float, hitPosZ: Float,
         rotX: Float = 0f, rotY: Float = 0f, rotZ: Float = 0f, rotW: Float = 1f,
+        anchorPose: com.lumiroom.core.domain.model.PoseData? = null
     ) {
         viewModelScope.launch(ioDispatcher) {
+            android.util.Log.d("ArPlacement", "onPlaneTapped called with furnitureId: $furnitureId")
             _uiState.update { it.copy(isLoadingModel = true, showTapToPlaceHint = false) }
 
-            val furnitureModel = furnitureRepository.getFurnitureById(furnitureId).firstOrNull()
+            val furnitureModel = furnitureRepository.getFurnitureByIdOnce(furnitureId)
+            android.util.Log.d("ArPlacement", "furnitureModel fetched: ${furnitureModel?.id}")
             if (furnitureModel != null) {
                 val newFurniture = RoomFurniture(
                     id = instanceId,
@@ -162,10 +175,22 @@ class ArViewModel @Inject constructor(
                     thumbnailPath = furnitureModel.thumbnailPath,
                     priceEstimate = furnitureModel.priceEstimate
                 )
+                android.util.Log.d("LumiroomDebug", "Furniture Created - Instance ID: $instanceId")
+                android.util.Log.d("LumiroomDebug", "RoomState Count Before: ${roomStateManager.roomModel.value?.furniture?.size}")
                 
                 roomStateManager.updateState { model ->
-                    model.copy(furniture = model.furniture + newFurniture)
+                    val newAnchors = if (anchorPose != null) {
+                        model.anchors.filter { it.id != instanceId } + com.lumiroom.core.domain.model.AnchorData(instanceId, anchorPose)
+                    } else model.anchors
+                    
+                    model.copy(
+                        furniture = model.furniture + newFurniture,
+                        anchors = newAnchors
+                    )
                 }
+                android.util.Log.d("LumiroomDebug", "RoomState Count After: ${roomStateManager.roomModel.value?.furniture?.size}")
+            } else {
+                android.util.Log.e("LumiroomDebug", "Failed to fetch furnitureModel for id: $furnitureId")
             }
 
             _uiState.update { it.copy(isLoadingModel = false, errorMessage = null) }
@@ -293,6 +318,7 @@ class ArViewModel @Inject constructor(
         rotX: Float, rotY: Float, rotZ: Float, rotW: Float,
         scaleX: Float, scaleY: Float, scaleZ: Float,
         matrixJson: String,
+        anchorPose: com.lumiroom.core.domain.model.PoseData? = null
     ) {
         roomStateManager.updateState { model ->
             val newFurniture = model.furniture.map { item ->
@@ -308,7 +334,12 @@ class ArViewModel @Inject constructor(
                     item
                 }
             }
-            model.copy(furniture = newFurniture)
+            val newAnchors = if (anchorPose != null) {
+                model.anchors.filter { it.id != itemId } + com.lumiroom.core.domain.model.AnchorData(itemId, anchorPose)
+            } else {
+                model.anchors
+            }
+            model.copy(furniture = newFurniture, anchors = newAnchors)
         }
     }
 
@@ -386,6 +417,11 @@ class ArViewModel @Inject constructor(
                             _uiState.update { it.copy(voiceTranscript = transcript, isVoiceListening = false) }
                             val command = commandParser.parse(transcript)
                             executeCommand(command)
+                            
+                            viewModelScope.launch {
+                                kotlinx.coroutines.delay(2000)
+                                _uiState.update { it.copy(voiceTranscript = null) }
+                            }
                         }
                         is VoiceResult.Error -> {
                             _uiState.update { it.copy(isVoiceListening = false, errorMessage = result.message, voiceTranscript = null) }
@@ -405,16 +441,14 @@ class ArViewModel @Inject constructor(
                 viewModelScope.launch(ioDispatcher) {
                     val item = furnitureRepository.findFirstByNameOrCategory(command.itemName)
                     if (item != null) {
-                        val voiceInstanceId = java.util.UUID.randomUUID().toString()
-                        onPlaneTapped(voiceInstanceId, item.id, 0f, 0f, -1f)
-                        _events.emit(ArViewEvent.ShowSnackbar("Placing ${item.name}"))
+                        _events.emit(ArViewEvent.PlaceFromVoice(item.id, item.name))
                     } else {
                         _events.emit(ArViewEvent.ShowSnackbar("Could not find ${command.itemName}"))
                     }
                 }
             }
             is VoiceCommand.Remove -> {
-                val match = _uiState.value.placedItems.find { it.name.contains(command.itemName, ignoreCase = true) }
+                val match = _uiState.value.placedItems.find { it.furnitureId.contains(command.itemName, ignoreCase = true) }
                 if (match != null) {
                     roomStateManager.updateState { model ->
                         model.copy(furniture = model.furniture.filter { it.id != match.id })
@@ -422,6 +456,18 @@ class ArViewModel @Inject constructor(
                 }
             }
             is VoiceCommand.Deselect -> onItemSelected(null)
+            is VoiceCommand.Select -> {
+                val match = _uiState.value.placedItems.find { it.furnitureId.contains(command.itemName, ignoreCase = true) }
+                if (match != null) {
+                    onItemSelected(match.id)
+                }
+            }
+            is VoiceCommand.SelectLast -> {
+                val lastItem = _uiState.value.placedItems.lastOrNull()
+                if (lastItem != null) {
+                    onItemSelected(lastItem.id)
+                }
+            }
             is VoiceCommand.RotateRelative -> {
                 val selectedId = _uiState.value.selectedItemIds.firstOrNull()
                 if (selectedId != null) {
@@ -498,4 +544,5 @@ sealed class ArViewEvent {
     object RoomSaved : ArViewEvent()
     object TakeScreenshot : ArViewEvent()
     object ShareScreenshot : ArViewEvent()
+    data class PlaceFromVoice(val catalogId: String, val itemName: String) : ArViewEvent()
 }

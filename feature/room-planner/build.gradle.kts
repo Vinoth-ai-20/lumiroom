@@ -23,6 +23,8 @@ dependencies {
     implementation(project(":core:common"))
     implementation(project(":core:database"))
     implementation(project(":core:domain"))
+    implementation(project(":core:datastore"))
+    implementation(project(":feature:voice"))
     implementation(platform(libs.androidx.compose.bom))
     implementation(libs.hilt.android)
     implementation(libs.hilt.navigation.compose)

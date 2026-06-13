@@ -4,6 +4,14 @@
 
 # Database Design
 
+> [!NOTE]
+> **Asset Integration & Pricing Update (v10):**
+> Lumiroom has been updated to use a dynamic Model Discovery Engine. Hardcoded `furniture_seed.json` lists have been eliminated. Assets are automatically indexed from the `/assets/models` directory. All prices have been dynamically recalculated to reflect the realistic Indian Market pricing (₹).
+>
+> **AR Synchronization & AppCheck Update (v1.1.1):**
+> Addressed Firebase AppCheck initialization failures by applying `DebugAppCheckProviderFactory` on debug builds. AR placement stability is improved by correctly persisting tracking anchors and synchronizing Y/Z axes with the 2D planner.
+
+
 **Project:** Lumiroom: AI-Assisted Mobile AR Furniture Visualization and Interior Planning System  
 **Version:** 2.0  
 
@@ -48,6 +56,8 @@ The catalog cache representing 3D/2D models available for placement.
 - **`id`** (UUID, PK)
 - **`name`** (String)
 - **`category`** (String)
+- **`room_type`** (String)
+- **`price_estimate`** (Real)
 - **`glb_url`** (String)
 - **`dimensions`** (Vector3)
 
@@ -115,3 +125,10 @@ Database versioning is managed via Room `Migration` files. Complex geometry migr
 
 - **Local**: Android Auto Backup handles storing SQLite files in Google Drive.
 - **Cloud**: Firebase Firestore automated daily backups are enabled in the Google Cloud Console.
+
+
+## Asset-Driven Catalog Architecture (v12)
+The furniture catalog is now completely dynamically generated from local assets.
+No manual registration, hardcoded arrays, or JSON seeding is required.
+During the application startup (specifically database creation), the system automatically scans the assets/models/ and assets/thumbnails/ directories.
+It uses the naming convention roomType_category_variant.glb (e.g. bathroom_bathtub_01.glb) to dynamically generate metadata, categories, pricing, and tags. This forms the single source of truth for the entire application catalog, powering search, filters, and AR persistence.

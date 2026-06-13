@@ -16,7 +16,8 @@ import com.lumiroom.core.ui.components.LoadingOverlay
 import com.lumiroom.core.ui.components.CreateRoomDialog
 import kotlinx.coroutines.launch
 
-private val CATEGORIES = listOf("All", "Favorites", "Sofas", "Chairs", "Tables", "Beds", "Cabinets", "Shelves", "Decor")
+private val CATEGORIES = listOf("All", "Favorites")
+private val ROOM_TYPES = listOf("All", "Living Room", "Bedroom", "Bathroom", "Kitchen", "Office")
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -118,8 +119,9 @@ fun CatalogScreen(
                     )
 
                     // Category Filters
+                    Text("Category", style = MaterialTheme.typography.labelMedium, modifier = Modifier.padding(start = 16.dp, top = 8.dp))
                     LazyRow(
-                        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
+                        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 4.dp),
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
                         items(CATEGORIES) { category ->
@@ -127,6 +129,21 @@ fun CatalogScreen(
                                 selected = (uiState.selectedCategory == category) || (category == "All" && uiState.selectedCategory == null),
                                 onClick = { viewModel.onCategorySelected(category) },
                                 label = { Text(category) }
+                            )
+                        }
+                    }
+
+                    // Room Type Filters
+                    Text("Room Type", style = MaterialTheme.typography.labelMedium, modifier = Modifier.padding(start = 16.dp, top = 8.dp))
+                    LazyRow(
+                        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 4.dp),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        items(ROOM_TYPES) { roomType ->
+                            FilterChip(
+                                selected = (uiState.selectedRoomType == roomType) || (roomType == "All" && uiState.selectedRoomType == null),
+                                onClick = { viewModel.onRoomTypeSelected(roomType) },
+                                label = { Text(roomType) }
                             )
                         }
                     }

@@ -2,6 +2,7 @@
 <resources>
     <string name="app_name">Lumiroom</string>
     <string name="app_description">AI-Assisted AR Furniture Visualization</string>
+    <string name="firebase_app_check_debug_token" translatable="false">e88eebb5-a8fb-47b0-920f-654ab07305ba</string>
 
     <!-- Onboarding -->
     <string name="onboarding_skip">Skip</string>

@@ -4,6 +4,11 @@
 
 # Software Requirements Specification (SRS)
 
+> [!NOTE]
+> **Asset Integration & Pricing Update (v10):**
+> Lumiroom has been updated to use a dynamic Model Discovery Engine. Hardcoded `furniture_seed.json` lists have been eliminated. Assets are automatically indexed from the `/assets/models` directory. All prices have been dynamically recalculated to reflect the realistic Indian Market pricing (₹).
+
+
 **Project:** Lumiroom: AI-Assisted Mobile AR Furniture Visualization and Interior Planning System  
 **Document Standard:** IEEE 830-1998  
 **Version:** 2.0  
@@ -35,8 +40,7 @@ Lumiroom is a state-of-the-art Android mobile application designed to assist use
 ### FR-02: 2D Room Planner
 - **FR-02.01**: The system shall provide a top-down 2D canvas editor.
 - **FR-02.02**: The system shall allow users to drag-and-drop items from a catalog onto the canvas.
-- **FR-02.03**: The system shall allow users to draw walls that snap to geometric corner points.
-- **FR-02.04**: The system shall provide a minimap for rapid navigation of large canvases.
+- **FR-02.03**: The 2D planner shall allow switching between structural drawing mode and furniture placement mode.
 
 ### FR-03: Shared State & Synchronization
 - **FR-03.01**: The system shall instantly synchronize placed items between the 2D planner and AR mode without a database roundtrip.
@@ -44,7 +48,7 @@ Lumiroom is a state-of-the-art Android mobile application designed to assist use
 
 ### FR-04: Voice & AI Capabilities
 - **FR-04.01**: The system shall transcribe English speech via the Android SpeechRecognizer API.
-- **FR-04.02**: The system shall map transcripts to predefined intents (Place, Move, Rotate, Delete).
+- **FR-04.02**: The system shall map transcripts to predefined intents (Place, Remove, Rotate, Scale, Select, Deselect, Delete, Undo, Redo).
 - **FR-04.03**: The system shall provide a chat interface powered by Vertex AI for conversational interior design advice.
 
 ### FR-05: Persistence & Cloud Sync

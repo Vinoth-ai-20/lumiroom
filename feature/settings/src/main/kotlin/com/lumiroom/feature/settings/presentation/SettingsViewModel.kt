@@ -38,6 +38,10 @@ class SettingsViewModel @Inject constructor(
         viewModelScope.launch { preferencesDataSource.setVoiceCommandsEnabled(enabled) }
     }
 
+    fun setArMeasurementUnit(unit: String) {
+        viewModelScope.launch { preferencesDataSource.setArMeasurementUnit(unit) }
+    }
+
     fun setAutoSyncEnabled(enabled: Boolean) {
         viewModelScope.launch { preferencesDataSource.setAutoSyncEnabled(enabled) }
     }

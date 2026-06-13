@@ -24,10 +24,11 @@ data class CatalogUiState(
     val isLoading: Boolean = false,
     val errorMessage: String? = null,
     val selectedCategory: String? = null,
+    val selectedRoomType: String? = null,
     val searchQuery: String = "",
 )
 
-@OptIn(FlowPreview::class)
+@OptIn(FlowPreview::class, kotlinx.coroutines.ExperimentalCoroutinesApi::class)
 @HiltViewModel
 class CatalogViewModel @Inject constructor(
     private val repository: FurnitureRepository,
@@ -43,19 +44,21 @@ class CatalogViewModel @Inject constructor(
 
     private val _searchQuery = MutableStateFlow("")
     private val _selectedCategory = MutableStateFlow<String?>(null)
+    private val _selectedRoomType = MutableStateFlow<String?>(null)
     
     // Derived state for the catalog grid
     val furniture: StateFlow<List<Furniture>> = combine(
         _selectedCategory,
+        _selectedRoomType,
         _searchQuery.debounce(300L) // Debounce search
-    ) { category, query ->
-        Pair(category, query)
-    }.flatMapLatest { (category, query) ->
+    ) { category, roomType, query ->
+        Triple(category, roomType, query)
+    }.flatMapLatest { (category, roomType, query) ->
         val safeQuery = query.takeIf { it.isNotBlank() }
         if (category == "Favorites") {
-            repository.getFilteredFurniture(null, safeQuery).map { list -> list.filter { it.isFavorite } }
+            repository.getFilteredFurniture(null, null, safeQuery).map { list -> list.filter { it.isFavorite } }
         } else {
-            repository.getFilteredFurniture(category, safeQuery)
+            repository.getFilteredFurniture(category, roomType, safeQuery)
         }
     }.stateIn(
         scope = viewModelScope,
@@ -79,5 +82,11 @@ class CatalogViewModel @Inject constructor(
         val newCategory = if (category == "All" || _selectedCategory.value == category) null else category
         _selectedCategory.value = newCategory
         _uiState.update { it.copy(selectedCategory = newCategory) }
+    }
+
+    fun onRoomTypeSelected(roomType: String?) {
+        val newRoomType = if (roomType == "All" || _selectedRoomType.value == roomType) null else roomType
+        _selectedRoomType.value = newRoomType
+        _uiState.update { it.copy(selectedRoomType = newRoomType) }
     }
 }

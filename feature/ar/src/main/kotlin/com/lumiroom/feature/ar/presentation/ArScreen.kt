@@ -67,7 +67,10 @@ fun ArScreen(
     val context = LocalContext.current
     var arSession by remember { mutableStateOf<com.google.ar.core.Session?>(null) }
 
-    var pendingFurnitureId by remember(furnitureId) { mutableStateOf(furnitureId) }
+    var pendingFurnitureId by remember(furnitureId) { 
+        android.util.Log.d("LumiroomDebug", "Selected Furniture ID initialized in ArScreen: $furnitureId")
+        mutableStateOf(furnitureId) 
+    }
     var currentFrame by remember { mutableStateOf<Frame?>(null) }
     var showCatalogOverlay by remember { mutableStateOf(false) }
     val anchorCache = remember { mutableMapOf<String, Anchor>() }
@@ -85,6 +88,44 @@ fun ArScreen(
         if (uiState.saveSuccess) {
             android.widget.Toast.makeText(context, "Room Saved Successfully", android.widget.Toast.LENGTH_SHORT).show()
             viewModel.onSaveSuccessHandled()
+        }
+    }
+
+    LaunchedEffect(Unit) {
+        viewModel.events.collect { event ->
+            when (event) {
+                is ArViewEvent.NavigateToCatalog -> onNavigateToCatalog()
+                is ArViewEvent.ShowSnackbar -> android.widget.Toast.makeText(context, event.message, android.widget.Toast.LENGTH_SHORT).show()
+                is ArViewEvent.PlaceFromVoice -> {
+                    val frame = currentFrame
+                    if (frame != null) {
+                        val displayMetrics = context.resources.displayMetrics
+                        val cx = displayMetrics.widthPixels / 2f
+                        val cy = displayMetrics.heightPixels / 2f
+                        val hitResult = frame.hitTest(cx, cy).firstOrNull { it.trackable is Plane && (it.trackable as Plane).isPoseInPolygon(it.hitPose) }
+                        if (hitResult != null) {
+                            val pose = hitResult.hitPose
+                            val instanceId = java.util.UUID.randomUUID().toString()
+                            val eulerHit = dev.romainguy.kotlin.math.eulerAngles(dev.romainguy.kotlin.math.Quaternion(pose.qx(), pose.qy(), pose.qz(), pose.qw()))
+                            val rotDegrees = Math.toDegrees(eulerHit.y.toDouble()).toFloat()
+                            viewModel.onPlaneTapped(
+                                instanceId = instanceId,
+                                furnitureId = event.catalogId,
+                                hitPosX = pose.tx(),
+                                hitPosY = pose.ty(),
+                                hitPosZ = pose.tz(),
+                                rotX = 0f, rotY = rotDegrees, rotZ = 0f, rotW = 1f
+                            )
+                            android.widget.Toast.makeText(context, "Placing ${event.itemName}", android.widget.Toast.LENGTH_SHORT).show()
+                        } else {
+                            android.widget.Toast.makeText(context, "No surface found. Please look at the floor.", android.widget.Toast.LENGTH_SHORT).show()
+                        }
+                    } else {
+                        android.widget.Toast.makeText(context, "AR Frame not ready yet.", android.widget.Toast.LENGTH_SHORT).show()
+                    }
+                }
+                else -> Unit
+            }
         }
     }
 
@@ -106,8 +147,11 @@ fun ArScreen(
         }
     }
 
-    // Initialize AR Engine and Loaders to ModelNodes
+    android.util.Log.d("LumiroomDebug", "Recomposing ArScreen - Placed Items: ${uiState.placedItems.size}")
+    
+    // Sync UI state furniture -> SceneView childNodes
     LaunchedEffect(uiState.placedItems, uiState.selectedItemIds, uiState.lockedItemIds, uiState.hiddenItemIds) {
+        android.util.Log.d("LumiroomDebug", "Syncing placedItems to childNodes. Node Count BEFORE: ${childNodes.size}")
         // Cleanup removed items
         val currentIds = uiState.placedItems.map { it.id }.toSet()
         val nodeIds = childNodes.mapNotNull { it.name }.toSet()
@@ -124,26 +168,25 @@ fun ArScreen(
         toAdd.forEach { id ->
             val placedItem = uiState.placedItems.find { it.id == id } ?: return@forEach
             coroutineScope.launch {
-
                 val modelInstance = try {
-                    modelLoader.loadModelInstance("models/${placedItem.modelPath.substringAfterLast("/")}")
+                    val assetPath = placedItem.modelPath
+                    android.util.Log.d("LumiroomDebug", "Model Path to load: $assetPath")
+                    modelLoader.loadModelInstance(assetPath)
                 } catch (e: Exception) {
+                    android.util.Log.e("LumiroomDebug", "ModelLoadError", e)
                     null
                 }
-                if (modelInstance != null) {
 
-                    
+                if (modelInstance != null) {
                     val anchor = anchorCache[id]
                     val baseNode: Node = if (anchor != null) {
-
                         AnchorNode(engine, anchor).apply {
                             name = id
                         }
                     } else {
-
                         Node(engine).apply {
                             name = id
-                            position = Position(placedItem.positionX, placedItem.positionY, placedItem.positionZ)
+                            position = io.github.sceneview.math.Position(placedItem.positionX, placedItem.positionY, placedItem.positionZ)
                         }
                     }
                     
@@ -153,8 +196,8 @@ fun ArScreen(
 
                     val transformNode = io.github.sceneview.node.Node(engine = engine).apply {
                         name = "transform_$id"
-                        this.scale = Scale(placedItem.scaleX, placedItem.scaleY, placedItem.scaleZ)
-                        this.quaternion = dev.romainguy.kotlin.math.Quaternion.fromAxisAngle(dev.romainguy.kotlin.math.Float3(0f, 1f, 0f), placedItem.rotation)
+                        this.scale = io.github.sceneview.math.Scale(placedItem.scaleX, placedItem.scaleY, placedItem.scaleZ)
+                        this.rotation = io.github.sceneview.math.Rotation(0f, placedItem.rotation, 0f)
                         transformNodesMap[id] = this
                         
                         isPositionEditable = false
@@ -162,7 +205,7 @@ fun ArScreen(
                         isScaleEditable = false
                     }
 
-                    val modelNode = object : ModelNode(modelInstance = modelInstance) {
+                    val modelNode = object : io.github.sceneview.node.ModelNode(modelInstance = modelInstance) {
                     }.apply {
                         name = id
                         val boundingBox = modelInstance.asset?.boundingBox
@@ -170,9 +213,9 @@ fun ArScreen(
                             val center = boundingBox.center
                             val halfExtent = boundingBox.halfExtent
                             // Center in X and Z, align bottom to Y=0
-                            position = Position(-center[0], halfExtent[1] - center[1], -center[2])
+                            position = io.github.sceneview.math.Position(-center[0], halfExtent[1] - center[1], -center[2])
                         } else {
-                            centerOrigin(Position(0f, -1f, 0f)) // -1f = bottom alignment
+                            centerOrigin(io.github.sceneview.math.Position(0f, -1f, 0f)) // -1f = bottom alignment
                         }
                         
                         isPositionEditable = false
@@ -182,11 +225,10 @@ fun ArScreen(
                     
                     transformNode.addChildNode(modelNode)
                     baseNode.addChildNode(transformNode)
-                    baseNode.name = id // So it can be found for removal
+                    baseNode.name = id
                     childNodes.add(baseNode)
-
                 } else {
-                    Log.e("ArPlacement", "Failed to load model instance!")
+                    android.util.Log.e("ArPlacement", "Failed to load model instance!")
                 }
             }
         }
@@ -226,14 +268,14 @@ fun ArScreen(
                 // Sync external transform changes (e.g., Undo, Redo, Planner edits)
                 val uiItem = uiState.placedItems.find { it.id == id }
                 if (uiItem != null && uiState.interactionMode != InteractionMode.ROTATE && uiState.interactionMode != InteractionMode.SCALE) {
-                    val targetRot = dev.romainguy.kotlin.math.Quaternion.fromAxisAngle(dev.romainguy.kotlin.math.Float3(0f, 1f, 0f), uiItem.rotation)
+                    val targetRot = io.github.sceneview.math.Rotation(0f, uiItem.rotation, 0f)
                     val targetScale = io.github.sceneview.math.Scale(uiItem.scaleX, uiItem.scaleY, uiItem.scaleZ)
 
                     val scaleDist = dev.romainguy.kotlin.math.length(transformNode.scale - targetScale)
-                    val rotDist = kotlin.math.abs(dev.romainguy.kotlin.math.dot(transformNode.quaternion, targetRot))
+                    val rotDist = kotlin.math.abs(transformNode.rotation.y - uiItem.rotation)
                     
-                    if (scaleDist > 0.005f || rotDist < 0.999f) {
-                        transformNode.quaternion = targetRot
+                    if (scaleDist > 0.005f || rotDist > 0.1f) {
+                        transformNode.rotation = targetRot
                         transformNode.scale = targetScale
                     }
                 }
@@ -266,7 +308,7 @@ fun ArScreen(
     }
 
     // Global state for continuous gesture tracking
-    val touchState = remember { object { var x = 0f; var y = 0f } }
+    val touchState = remember { object { var x = 0f; var y = 0f; var totalDx = 0f } }
 
     Box(modifier = Modifier.fillMaxSize()) {
         ARScene(
@@ -305,6 +347,7 @@ fun ArScreen(
                     
                     touchState.x = e.x
                     touchState.y = e.y
+                    touchState.totalDx = 0f
                     
                     if (uiState.interactionMode == InteractionMode.MOVE) {
                         return
@@ -323,16 +366,18 @@ fun ArScreen(
                     
                     if (uiState.interactionMode == InteractionMode.ROTATE) {
                         val dx = e.x - touchState.x
+                        touchState.totalDx += dx
                         touchState.x = e.x
                         touchState.y = e.y
 
+                        val placedItem = uiState.placedItems.find { it.id == selectedId } ?: return
                         val transformNode = transformNodesMap[selectedId] ?: return
-                        val newYaw = transformNode.rotation.y - dx * 0.5f
+                        val newYaw = placedItem.rotation - touchState.totalDx * 0.5f
                         transformNode.rotation = io.github.sceneview.math.Rotation(0f, newYaw, 0f)
                         
                         val degrees = newYaw.toInt()
                         val normalizedDegrees = ((degrees % 360) + 360) % 360
-                        activeRotationText = "$normalizedDegrees°"
+                        activeRotationText = "${normalizedDegrees}°"
                         return
                     }
                     
@@ -371,6 +416,7 @@ fun ArScreen(
                     if (uiState.interactionMode == InteractionMode.MOVE) {
                         val baseNode = childNodes.find { it.name == selectedId } ?: return
                         val transformNode = transformNodesMap[selectedId] ?: return
+                        val placedItem = uiState.placedItems.find { it.id == selectedId } ?: return
                         
                         val hitResult = currentFrame?.hitTest(e.x, e.y)?.firstOrNull { hit ->
                             val trackable = hit.trackable
@@ -386,16 +432,23 @@ fun ArScreen(
                             if (anchorNode != null) {
                                 anchorNode.anchor?.detach()
                                 anchorNode.anchor = newAnchor
+                                anchorCache[selectedId] = newAnchor // Update cache!
                             }
+                            
+                            val poseData = com.lumiroom.core.domain.model.PoseData(
+                                x = identityPose.tx(), y = identityPose.ty(), z = identityPose.tz(),
+                                qx = identityPose.qx(), qy = identityPose.qy(), qz = identityPose.qz(), qw = identityPose.qw()
+                            )
                             
                             viewModel.onItemTransformed(
                                 itemId = selectedId,
                                 posX = baseNode.worldPosition.x,
                                 posY = baseNode.worldPosition.y,
                                 posZ = baseNode.worldPosition.z,
-                                rotX = 0f, rotY = transformNode.rotation.y, rotZ = 0f, rotW = 1f,
+                                rotX = 0f, rotY = placedItem.rotation, rotZ = 0f, rotW = 1f,
                                 scaleX = transformNode.scale.x, scaleY = transformNode.scale.y, scaleZ = transformNode.scale.z,
-                                matrixJson = ""
+                                matrixJson = "",
+                                anchorPose = poseData
                             )
                         }
                     }
@@ -404,12 +457,15 @@ fun ArScreen(
                         activeRotationText = null
                         val baseNode = childNodes.find { it.name == selectedId } ?: return
                         val transformNode = transformNodesMap[selectedId] ?: return
+                        val placedItem = uiState.placedItems.find { it.id == selectedId } ?: return
+                        val finalYaw = placedItem.rotation - touchState.totalDx * 0.5f
+                        
                         viewModel.onItemTransformed(
                             itemId = selectedId,
                             posX = baseNode.worldPosition.x,
                             posY = baseNode.worldPosition.y,
                             posZ = baseNode.worldPosition.z,
-                            rotX = 0f, rotY = transformNode.rotation.y, rotZ = 0f, rotW = 1f,
+                            rotX = 0f, rotY = finalYaw, rotZ = 0f, rotW = 1f,
                             scaleX = transformNode.scale.x, scaleY = transformNode.scale.y, scaleZ = transformNode.scale.z,
                             matrixJson = ""
                         )
@@ -461,6 +517,8 @@ fun ArScreen(
                         viewModel.onItemSelected(node.name!!, multiSelect = false) // Add long press later for multi-select
                     } else {
                         viewModel.onItemSelected(null)
+                        android.util.Log.d("LumiroomDebug", "Touch Event on Screen X: ${e.x}, Y: ${e.y}")
+                        android.util.Log.d("LumiroomDebug", "Current pendingFurnitureId: $pendingFurnitureId")
                         if (pendingFurnitureId != null) {
                             val hitResult = currentFrame?.hitTest(e.x, e.y)?.firstOrNull { hit ->
                                 val trackable = hit.trackable
@@ -469,6 +527,7 @@ fun ArScreen(
                             if (hitResult != null) {
                                 val pose = hitResult.hitPose
 
+                                android.util.Log.d("LumiroomDebug", "Hit Result Found - Plane Type: ${(hitResult.trackable as? Plane)?.type}, Pose Translation: ${pose.translation.joinToString()}")
                                 
                                 val instanceId = java.util.UUID.randomUUID().toString()
                                 val identityPose = com.google.ar.core.Pose(
@@ -478,8 +537,16 @@ fun ArScreen(
                                 val anchor = hitResult.trackable.createAnchor(identityPose)
                                 anchorCache[instanceId] = anchor
                                 
+                                android.util.Log.d("LumiroomDebug", "Anchor Created - Position: ${identityPose.translation.joinToString()}, Quaternion: ${identityPose.rotationQuaternion.joinToString()}")
+                                
+                                val poseData = com.lumiroom.core.domain.model.PoseData(
+                                    x = identityPose.tx(), y = identityPose.ty(), z = identityPose.tz(),
+                                    qx = identityPose.qx(), qy = identityPose.qy(), qz = identityPose.qz(), qw = identityPose.qw()
+                                )
+                                
                                 if (uiState.roomAnchorId == null) {
-                                    val poseData = com.lumiroom.core.domain.model.PoseData(
+                                    android.util.Log.d("ArPlacement", "onSingleTapConfirmed: Creating room anchor")
+                                    val roomPoseData = com.lumiroom.core.domain.model.PoseData(
                                         x = hitResult.hitPose.tx(),
                                         y = hitResult.hitPose.ty(),
                                         z = hitResult.hitPose.tz(),
@@ -488,8 +555,19 @@ fun ArScreen(
                                         qz = hitResult.hitPose.qz(),
                                         qw = hitResult.hitPose.qw()
                                     )
-                                    viewModel.setRoomAnchor(instanceId, poseData)
+                                    viewModel.setRoomAnchor(instanceId, roomPoseData)
+                                    
+                                    android.util.Log.d("ArPlacement", "onSingleTapConfirmed: Placing first item at room origin")
+                                    viewModel.onPlaneTapped(
+                                        instanceId = instanceId,
+                                        furnitureId = pendingFurnitureId!!,
+                                        hitPosX = 0f, hitPosY = 0f, hitPosZ = 0f, // Relative to the anchor we just created
+                                        rotX = 0f, rotY = 0f, rotZ = 0f, rotW = 1f,
+                                        anchorPose = poseData
+                                    )
+                                    pendingFurnitureId = null
                                 } else {
+                                    android.util.Log.d("ArPlacement", "onSingleTapConfirmed: Mapping to existing room anchor")
                                     // 2D Mapping: calculate position relative to roomAnchor
                                     val roomAnchor = anchorCache[uiState.roomAnchorId!!]
                                     if (roomAnchor != null) {
@@ -505,11 +583,13 @@ fun ArScreen(
                                         val relYaw = eulerHit.y - eulerAnchor.y
                                         val rotDegrees = Math.toDegrees(relYaw.toDouble()).toFloat()
 
+                                        android.util.Log.d("ArPlacement", "onSingleTapConfirmed: Calling onPlaneTapped")
                                         viewModel.onPlaneTapped(
                                             instanceId = instanceId,
                                             furnitureId = pendingFurnitureId!!,
                                             hitPosX = relX, hitPosY = relY, hitPosZ = relZ,
-                                            rotX = 0f, rotY = rotDegrees, rotZ = 0f, rotW = 1f
+                                            rotX = 0f, rotY = rotDegrees, rotZ = 0f, rotW = 1f,
+                                            anchorPose = poseData
                                         )
                                         pendingFurnitureId = null
                                     } else {
@@ -519,6 +599,8 @@ fun ArScreen(
                             } else {
                                 Log.w("ArPlacement", "Hit result did not match any planes.")
                             }
+                        } else {
+                            android.util.Log.d("ArPlacement", "onSingleTapConfirmed: pendingFurnitureId is null")
                         }
                     }
                 }

@@ -1,5 +1,10 @@
 # Rendering Pipeline
 
+> [!NOTE]
+> **Asset Integration & Pricing Update (v10):**
+> Lumiroom has been updated to use a dynamic Model Discovery Engine. Hardcoded `furniture_seed.json` lists have been eliminated. Assets are automatically indexed from the `/assets/models` directory. All prices have been dynamically recalculated to reflect the realistic Indian Market pricing (₹).
+
+
 **Project:** Lumiroom: AI-Assisted Mobile AR Furniture Visualization and Interior Planning System  
 
 Lumiroom has two distinct rendering pipelines that operate concurrently: The Native 3D Pipeline and the Compose 2D Pipeline.
@@ -9,6 +14,7 @@ Lumiroom has two distinct rendering pipelines that operate concurrently: The Nat
 `SceneView` uses the Google `Filament` physically based rendering (PBR) engine.
 
 1. **Model Loading**: When `RoomState` updates, the `ArViewModel` checks for new items. It requests the GLB asset from the repository.
+   - *Important Note*: The Filament `ModelLoader` natively supports and resolves `file:///android_asset/` URIs. Developers must ensure that absolute asset paths passed to `SceneView` are not incorrectly prepended with redundant `models/` directory prefixes, as this causes `FileNotFoundException`s which are silently swallowed by coroutines, leading to invisible models.
 2. **Node Creation**: A `ModelNode` is instantiated.
 3. **PBR Material Setup**: SceneView automatically extracts the diffuse, metallic, and roughness maps from the GLB file.
 4. **Lighting**: An HDR environment map (from the camera feed) is applied to match ambient physical lighting.

@@ -36,7 +36,7 @@ class AppPreferencesDataSource @Inject constructor(
                 themeMode            = prefs[AppPreferenceKeys.THEME_MODE]            ?: "SYSTEM",
                 arPlaneDisplay       = prefs[AppPreferenceKeys.AR_PLANE_DISPLAY]      ?: true,
                 arShadowQuality      = prefs[AppPreferenceKeys.AR_SHADOW_QUALITY]     ?: "MEDIUM",
-                arMeasurementUnit    = prefs[AppPreferenceKeys.AR_MEASUREMENT_UNIT]   ?: "METRIC",
+                arMeasurementUnit    = prefs[AppPreferenceKeys.AR_MEASUREMENT_UNIT]   ?: "m",
                 notificationsEnabled = prefs[AppPreferenceKeys.NOTIFICATIONS_ENABLED] ?: true,
                 autoSyncEnabled      = prefs[AppPreferenceKeys.AUTO_SYNC_ENABLED]     ?: true,
                 lastSelectedCategory = prefs[AppPreferenceKeys.LAST_SELECTED_CATEGORY] ?: "",

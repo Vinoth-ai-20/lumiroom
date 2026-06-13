@@ -111,7 +111,7 @@ fun LumiroomNavHost(
                             restoreState = true
                         }
                     } else {
-                        navController.navigate(LumiroomRoutes.AR) {
+                        navController.navigate("ar") {
                             popUpTo(LumiroomRoutes.CATALOG) { saveState = true }
                             launchSingleTop = true
                             restoreState = true
@@ -155,7 +155,37 @@ fun LumiroomNavHost(
         }
 
         // ── AR ─────────────────────────────────────────────────────────────
-        // Old AR route removed as ArViewModel now requires roomId
+        composable(
+            route = LumiroomRoutes.AR,
+            arguments = listOf(androidx.navigation.navArgument("furnitureId") {
+                type = androidx.navigation.NavType.StringType
+                nullable = true
+                defaultValue = null
+            })
+        ) { backStackEntry ->
+            val furnitureId = backStackEntry.arguments?.getString("furnitureId")
+            ArScreen(
+                furnitureId = furnitureId,
+                onNavigateToCatalog = { 
+                    navController.navigate(LumiroomRoutes.CATALOG) {
+                        popUpTo(LumiroomRoutes.CATALOG) { saveState = true }
+                        launchSingleTop = true
+                        restoreState = true
+                    }
+                },
+                // When coming from a single furniture item, we don't have a specific room/plan.
+                // Navigating to planner could either go to a new plan or we just pass empty string.
+                onNavigateToPlanner = { navController.navigate(LumiroomRoutes.roomPlanner("")) },
+                onNavigateToAi = { 
+                    navController.navigate(LumiroomRoutes.AI_ASSISTANT) {
+                        popUpTo(LumiroomRoutes.CATALOG) { saveState = true }
+                        launchSingleTop = true
+                        restoreState = true
+                    }
+                },
+                onNavigateBack = safeNavigateBack,
+            )
+        }
         
         composable(
             route = LumiroomRoutes.AR_WITH_ROOM,

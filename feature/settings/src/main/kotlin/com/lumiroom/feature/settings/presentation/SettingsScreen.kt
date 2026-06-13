@@ -85,6 +85,18 @@ fun SettingsScreen(
                         onCheckedChange = viewModel::setVoiceCommandsEnabled)
                 }
             )
+            ListItem(
+                headlineContent = { Text("Measurement Unit") },
+                supportingContent = { Text(prefs.arMeasurementUnit) },
+                trailingContent = {
+                    TextButton(onClick = {
+                        val next = when (prefs.arMeasurementUnit) {
+                            "m" -> "cm"; "cm" -> "mm"; "mm" -> "in"; else -> "m"
+                        }
+                        viewModel.setArMeasurementUnit(next)
+                    }) { Text("Change") }
+                }
+            )
 
             HorizontalDivider()
 

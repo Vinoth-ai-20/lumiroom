@@ -4,6 +4,7 @@ data class Furniture(
     val id: String,
     val name: String,
     val category: String,
+    val roomType: String?,
     val description: String,
     val width: Float,
     val depth: Float,

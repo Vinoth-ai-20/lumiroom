@@ -44,7 +44,7 @@ interface FurnitureDao {
 
     @Query("SELECT * FROM furniture WHERE id = :id")
     fun getFurnitureById(id: String): Flow<FurnitureEntity?>
-
+    
     @Query("SELECT * FROM furniture WHERE id = :id")
     suspend fun getFurnitureByIdOnce(id: String): FurnitureEntity?
 
@@ -54,11 +54,13 @@ interface FurnitureDao {
     @Query("""
         SELECT * FROM furniture 
         WHERE (:category IS NULL OR category = :category)
+          AND (:roomType IS NULL OR room_type = :roomType)
           AND (:query IS NULL OR name LIKE '%' || :query || '%')
         ORDER BY name ASC
     """)
     fun getFilteredFurniture(
         category: String?,
+        roomType: String?,
         query: String?,
     ): Flow<List<FurnitureEntity>>
 

@@ -86,8 +86,18 @@ fun AboutScreen(
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
             ) {
                 Column(modifier = Modifier.padding(16.dp)) {
-                    Text("Developer Information", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold, modifier = Modifier.padding(bottom = 8.dp))
-                    Text("Developed for interior planning.\nGitHub: github.com/lumiroom\nLicense: MIT License", style = MaterialTheme.typography.bodyMedium)
+                    Text("Academic Project Information", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold, modifier = Modifier.padding(bottom = 8.dp))
+                    Text(
+                        "App Name: Lumiroom\n" +
+                        "Project Title: A MARKERLESS AUGMENTED REALITY FRAMEWORK FOR INTERACTIVE ROOM-SCALE INTERIOR DESIGN VISUALIZATION\n" +
+                        "Developed by: Vinoth M\n" +
+                        "Registration No: 412024405001\n" +
+                        "Degree: Master of Engineering\n" +
+                        "Institution: Sri Krishna Engineering College, Chennai - 601 301\n" +
+                        "University: Anna University, Chennai - 600 025\n" +
+                        "Date: June 2026",
+                        style = MaterialTheme.typography.bodyMedium
+                    )
                 }
             }
         }

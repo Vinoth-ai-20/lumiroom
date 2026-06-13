@@ -35,6 +35,11 @@ import kotlinx.coroutines.withContext
 import android.content.ContentValues
 import android.os.Build
 import android.provider.MediaStore
+import com.lumiroom.feature.voice.CommandParser
+import com.lumiroom.feature.voice.VoiceCommand
+import com.lumiroom.feature.voice.VoiceCommandExecutor
+import com.lumiroom.feature.voice.VoiceCommandManager
+import com.lumiroom.feature.voice.VoiceResult
 
 enum class InteractionMode {
     SELECT,
@@ -69,7 +74,8 @@ data class Placed2DFurniture(
     val depthCm: Float = 100f,
     val colorHex: Long = 0xFF8B4513,
     val zIndex: Int = 0,
-    val hasCollision: Boolean = false
+    val hasCollision: Boolean = false,
+    val priceEstimate: Double? = null
 )
 
 data class RoomPlannerUiState(
@@ -95,10 +101,14 @@ data class RoomPlannerUiState(
     val canRedo: Boolean = false,
     val roomAreaSqM: Float = 0f,
     val roomPerimeterM: Float = 0f,
+    val snapToWalls: Boolean = true,
     val snapToGrid: Boolean = true,
-    val snapToWalls: Boolean = true
+    val isVoiceListening: Boolean = false,
+    val voiceTranscript: String? = null,
+    val errorMessage: String? = null,
+    val measurementUnit: String = "m",
+    val totalPriceEstimate: Double = 0.0
 )
-
 
 @HiltViewModel
 class RoomPlannerViewModel @Inject constructor(
@@ -107,8 +117,11 @@ class RoomPlannerViewModel @Inject constructor(
     private val sharedRoomRepository: SharedRoomRepository,
     private val roomStateManager: RoomStateManager,
     private val transformManager: TransformManager,
-    private val savedStateHandle: SavedStateHandle
-) : ViewModel() {
+    private val voiceCommandManager: VoiceCommandManager,
+    private val commandParser: CommandParser,
+    private val savedStateHandle: SavedStateHandle,
+    private val preferencesDataSource: com.lumiroom.core.datastore.AppPreferencesDataSource
+) : ViewModel(), VoiceCommandExecutor {
 
 
     private val _uiState = MutableStateFlow(RoomPlannerUiState())
@@ -166,36 +179,37 @@ class RoomPlannerViewModel @Inject constructor(
         roomStateManager.updateState { model ->
             var newModel = model
             if (walls != null) {
-                newModel = newModel.copy(walls = walls.map { w -> RoomWall(w.id, w.segment.start.x, w.segment.start.y, w.segment.end.x, w.segment.end.y, w.thicknessCm, 250f) })
+                newModel = newModel.copy(walls = walls.map { w -> RoomWall(w.id, w.segment.start.x / 100f, w.segment.start.y / 100f, w.segment.end.x / 100f, w.segment.end.y / 100f, w.thicknessCm, 250f) })
             }
             if (doors != null) {
-                newModel = newModel.copy(doors = doors.map { d -> RoomDoor(d.id, d.segment.start.x, d.segment.start.y, d.segment.end.x, d.segment.end.y, d.thicknessCm, 200f, d.swingAngle) })
+                newModel = newModel.copy(doors = doors.map { d -> RoomDoor(d.id, d.segment.start.x / 100f, d.segment.start.y / 100f, d.segment.end.x / 100f, d.segment.end.y / 100f, d.thicknessCm, 200f, d.swingAngle) })
             }
             if (windows != null) {
-                newModel = newModel.copy(windows = windows.map { w -> RoomWindow(w.id, w.segment.start.x, w.segment.start.y, w.segment.end.x, w.segment.end.y, w.thicknessCm, 120f, 80f) })
+                newModel = newModel.copy(windows = windows.map { w -> RoomWindow(w.id, w.segment.start.x / 100f, w.segment.start.y / 100f, w.segment.end.x / 100f, w.segment.end.y / 100f, w.thicknessCm, 120f, 80f) })
             }
             if (furniture != null) {
                 val oldMap = model.furniture.associateBy { it.id }
                 newModel = newModel.copy(furniture = furniture.map { f ->
                     val oldF = oldMap[f.id]
+                    val catalogF = if (oldF == null) catalog.value.find { it.id == f.furnitureId } else null
                     RoomFurniture(
                         id = f.id,
                         furnitureId = f.furnitureId,
-                        positionX = f.position.x,
-                        positionY = f.position.y,
+                        positionX = f.position.x / 100f,
+                        positionY = f.position.y / 100f,
                         rotation = f.rotation,
                         scaleX = f.scale,
                         scaleY = f.scale,
                         widthCm = f.widthCm,
                         depthCm = f.depthCm,
-                        heightCm = oldF?.heightCm ?: 100f,
+                        heightCm = oldF?.heightCm ?: catalogF?.height?.times(100f) ?: 100f,
                         colorHex = f.colorHex,
                         zIndex = f.zIndex,
-                        name = oldF?.name ?: "",
-                        category = oldF?.category ?: "",
-                        modelPath = oldF?.modelPath ?: "",
-                        thumbnailPath = oldF?.thumbnailPath,
-                        priceEstimate = oldF?.priceEstimate
+                        name = oldF?.name ?: catalogF?.name ?: "",
+                        category = oldF?.category ?: catalogF?.category ?: "",
+                        modelPath = oldF?.modelPath ?: catalogF?.modelPath ?: "",
+                        thumbnailPath = oldF?.thumbnailPath ?: catalogF?.thumbnailPath,
+                        priceEstimate = oldF?.priceEstimate ?: catalogF?.priceEstimate
                     )
                 })
             }
@@ -257,13 +271,14 @@ class RoomPlannerViewModel @Inject constructor(
                         if (state.draggedFurnitureId == null) {
                             android.util.Log.d("RoomPlanner", "[COLLECT] Updating uiState with ${model.furniture.size} furniture items")
                             state.copy(
-                                walls = model.walls.map { Wall(it.id, LineSegment(Point2D(it.startX, it.startY), Point2D(it.endX, it.endY)), it.thicknessCm) },
-                                doors = model.doors.map { Door(it.id, LineSegment(Point2D(it.startX, it.startY), Point2D(it.endX, it.endY)), it.thicknessCm, it.swingAngle) },
-                                windows = model.windows.map { Window(it.id, LineSegment(Point2D(it.startX, it.startY), Point2D(it.endX, it.endY)), it.thicknessCm) },
-                                furniture = model.furniture.map { Placed2DFurniture(it.id, it.furnitureId, Point2D(it.positionX, it.positionY), it.rotation, it.scaleX, it.widthCm, it.depthCm, it.colorHex, it.zIndex, false) },
+                                walls = model.walls.map { Wall(it.id, LineSegment(Point2D(it.startX * 100f, it.startY * 100f), Point2D(it.endX * 100f, it.endY * 100f)), it.thicknessCm) },
+                                doors = model.doors.map { Door(it.id, LineSegment(Point2D(it.startX * 100f, it.startY * 100f), Point2D(it.endX * 100f, it.endY * 100f)), it.thicknessCm, it.swingAngle) },
+                                windows = model.windows.map { Window(it.id, LineSegment(Point2D(it.startX * 100f, it.startY * 100f), Point2D(it.endX * 100f, it.endY * 100f)), it.thicknessCm) },
+                                furniture = model.furniture.map { Placed2DFurniture(it.id, it.furnitureId, Point2D(it.positionX * 100f, it.positionY * 100f), it.rotation, it.scaleX, it.widthCm, it.depthCm, it.colorHex, it.zIndex, false, it.priceEstimate) },
                                 focusedPlacedFurnitureIds = model.selectionState.selectedItemIds,
                                 canUndo = roomStateManager.canUndo,
-                                canRedo = roomStateManager.canRedo
+                                canRedo = roomStateManager.canRedo,
+                                totalPriceEstimate = model.furniture.sumOf { it.priceEstimate ?: 0.0 }
                             )
                         } else {
                             android.util.Log.d("RoomPlanner", "[COLLECT] Skipped uiState update (dragging in progress)")
@@ -272,6 +287,12 @@ class RoomPlannerViewModel @Inject constructor(
                     }
                     updateAreaAndPerimeter(_uiState.value.walls)
                 }
+            }
+        }
+        
+        viewModelScope.launch {
+            preferencesDataSource.appPreferences.collect { prefs ->
+                _uiState.update { it.copy(measurementUnit = prefs.arMeasurementUnit) }
             }
         }
     }
@@ -408,7 +429,8 @@ class RoomPlannerViewModel @Inject constructor(
                 furnitureId = state.selectedFurnitureId,
                 position = point,
                 widthCm = widthCm,
-                depthCm = depthCm
+                depthCm = depthCm,
+                priceEstimate = selectedFurniture?.priceEstimate
             )
             val sizeBefore = state.furniture.size
             android.util.Log.d("RoomPlanner", "[PLACE] Creating furniture: id=$newFurnitureId pos=$point w=${newFurniture.widthCm} d=${newFurniture.depthCm} sizeBefore=$sizeBefore")
@@ -617,7 +639,7 @@ class RoomPlannerViewModel @Inject constructor(
         } else if (state.mode == InteractionMode.SELECT) {
             val snapshot = preDragFurnitureSnapshot
             if (state.draggedFurnitureId != null && snapshot != null) {
-                updateRoomState()
+                updateRoomState(furniture = state.furniture)
             }
             preDragFurnitureSnapshot = null
             _uiState.update { it.copy(draggedFurnitureId = null, dragOffset = null) }
@@ -790,6 +812,85 @@ class RoomPlannerViewModel @Inject constructor(
                 state.visibleLayers + layer
             }
             state.copy(visibleLayers = newLayers)
+        }
+    }
+
+    fun toggleVoiceListening() {
+        if (_uiState.value.isVoiceListening) {
+            voiceCommandManager.stopListening()
+            _uiState.update { it.copy(isVoiceListening = false) }
+        } else {
+            _uiState.update { it.copy(isVoiceListening = true, voiceTranscript = "Listening...") }
+            viewModelScope.launch {
+                voiceCommandManager.startRecognition().collect { result ->
+                    when (result) {
+                        is VoiceResult.Partial -> {
+                            _uiState.update { it.copy(voiceTranscript = result.text) }
+                        }
+                        is VoiceResult.Transcript -> {
+                            val transcript = result.text
+                            _uiState.update { it.copy(voiceTranscript = transcript, isVoiceListening = false) }
+                            val command = commandParser.parse(transcript)
+                            executeCommand(command)
+                        }
+                        is VoiceResult.Error -> {
+                            _uiState.update { it.copy(isVoiceListening = false, errorMessage = result.message, voiceTranscript = null) }
+                        }
+                        else -> Unit
+                    }
+                }
+            }
+        }
+    }
+
+    fun onErrorDismissed() {
+        _uiState.update { it.copy(errorMessage = null) }
+    }
+
+    override fun executeCommand(command: VoiceCommand) {
+        android.util.Log.d("RoomPlanner", "Executing VoiceCommand: $command")
+        when (command) {
+            is VoiceCommand.Undo -> undo()
+            is VoiceCommand.Redo -> redo()
+            is VoiceCommand.DeleteSelected -> deleteFocusedItem()
+            is VoiceCommand.Remove -> {
+                // If it's "remove the chair", we find the first item matching category/name
+                val state = _uiState.value
+                val item = state.furniture.find { it.id == command.itemName || it.furnitureId.contains(command.itemName, ignoreCase = true) }
+                if (item != null) {
+                    val newFurniture = state.furniture.filterNot { it.id == item.id }
+                    updateRoomState(furniture = newFurniture)
+                }
+            }
+            is VoiceCommand.RotateRelative -> rotateFocusedFurniture(command.degrees)
+            is VoiceCommand.ScaleRelative -> scaleFocusedFurniture(command.delta)
+            is VoiceCommand.OpenCatalog -> {
+                // Not supported directly in 2D yet, but we could mock
+            }
+            is VoiceCommand.Place -> {
+                // Note: The AR Place finds the furniture from DB by name/category and places it
+                viewModelScope.launch(Dispatchers.IO) {
+                    val item = furnitureRepository.findFirstByNameOrCategory(command.itemName)
+                    if (item != null) {
+                        // Place at center of current view
+                        val state = _uiState.value
+                        val cx = state.panX
+                        val cy = state.panY
+                        val newFurnitureId = java.util.UUID.randomUUID().toString()
+                        val newFurniture = Placed2DFurniture(
+                            id = newFurnitureId,
+                            furnitureId = item.id,
+                            position = Point2D(-cx, -cy),
+                            widthCm = (item.width * 100f).coerceAtLeast(40f),
+                            depthCm = (item.depth * 100f).coerceAtLeast(40f)
+                        )
+                        updateRoomState(furniture = state.furniture + newFurniture)
+                    }
+                }
+            }
+            else -> {
+                android.util.Log.d("RoomPlanner", "VoiceCommand $command not fully handled in 2D Planner yet.")
+            }
         }
     }
 }

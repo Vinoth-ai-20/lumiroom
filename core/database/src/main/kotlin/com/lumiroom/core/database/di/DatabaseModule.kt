@@ -103,7 +103,11 @@ object DatabaseModule {
                 db.execSQL("ALTER TABLE floor_plan_items ADD COLUMN initScaleZ REAL NOT NULL DEFAULT 1.0")
             }
         })
-        .fallbackToDestructiveMigrationOnDowngrade()
+        .addMigrations(object : Migration(8, 9) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE furniture ADD COLUMN room_type TEXT")
+            }
+        })
         .build()
 
     @Provides

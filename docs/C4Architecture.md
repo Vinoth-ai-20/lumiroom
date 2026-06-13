@@ -1,5 +1,10 @@
 # C4 Architecture Models
 
+> [!NOTE]
+> **Asset Integration & Pricing Update (v10):**
+> Lumiroom has been updated to use a dynamic Model Discovery Engine. Hardcoded `furniture_seed.json` lists have been eliminated. Assets are automatically indexed from the `/assets/models` directory. All prices have been dynamically recalculated to reflect the realistic Indian Market pricing (₹).
+
+
 **Project:** Lumiroom: AI-Assisted Mobile AR Furniture Visualization and Interior Planning System  
 **Version:** 2.0  
 
@@ -74,10 +79,10 @@ C4Component
         Component(plane_manager, "Plane Manager", "Kotlin", "Extracts physical boundaries")
         Component(furniture_manager, "Furniture Manager", "Kotlin", "Handles item placements")
         Component(selection_manager, "Selection Manager", "Kotlin", "Handles active selections and transforms")
-        Component(minimap, "Minimap Manager", "Kotlin", "Calculates mini-view matrices")
         Component(undo_redo, "UndoRedo Manager", "Kotlin", "Snapshot-based state restoration")
         Component(room_repo, "Room Repository", "Kotlin", "Coordinates local/remote room data")
         Component(canvas_ctrl, "Canvas Controller", "Kotlin", "Drives the 2D planner compose UI")
+        Component(voice_mgr, "Voice Command Manager", "Kotlin", "Parses NLP to Voice Intents")
     }
     
     ComponentDb(db, "Room Database", "SQLite")
@@ -88,6 +93,6 @@ C4Component
     Rel(selection_manager, furniture_manager, "Transforms targets")
     Rel(furniture_manager, undo_redo, "Pushes state")
     Rel(undo_redo, room_repo, "Persists snapshot")
-    Rel(canvas_ctrl, minimap, "Requests view region")
+    Rel(voice_mgr, furniture_manager, "Triggers actions")
     Rel(room_repo, db, "SQL Queries")
 ```

@@ -18,6 +18,10 @@
 
 Lumiroom is an enterprise-grade Android application that redefines how users plan and visualize interior spaces. By combining **ARCore** spatial tracking with a comprehensive **2D Room Planner** and an offline-capable architecture, Lumiroom provides a seamless interior design experience across multiple paradigms.
 
+> [!NOTE]
+> **AR Synchronization & AppCheck Update (v1.1.2):**
+> Fixed Firebase AppCheck quirk where Android caches an overriding random debug token instead of parsing `strings.xml`. Resolved Filament `ModelLoader` swallowing `FileNotFoundException` by properly parsing native `file:///android_asset/` URIs without redundant prefixing.
+
 ---
 
 ## 📸 Screenshots
@@ -237,3 +241,10 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 * ISO/IEC/IEEE 42010:2011, Systems and software engineering — Architecture description.
 * IEEE Std 830-1998, IEEE Recommended Practice for Software Requirements Specifications.
+
+
+## Asset-Driven Catalog Architecture (v12)
+The furniture catalog is now completely dynamically generated from local assets.
+No manual registration, hardcoded arrays, or JSON seeding is required.
+During the application startup (specifically database creation), the system automatically scans the assets/models/ and assets/thumbnails/ directories.
+It uses the naming convention roomType_category_variant.glb (e.g. bathroom_bathtub_01.glb) to dynamically generate metadata, categories, pricing, and tags. This forms the single source of truth for the entire application catalog, powering search, filters, and AR persistence.

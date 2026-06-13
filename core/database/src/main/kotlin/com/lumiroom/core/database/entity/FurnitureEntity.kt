@@ -20,6 +20,7 @@ data class FurnitureEntity(
 
     val name: String,
     val category: String,
+    @ColumnInfo(name = "room_type") val roomType: String?,
     val description: String,
 
     val width: Float,
